@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Bspline():
-   def B(self, x, k, i, t):            # B-spline function
+   def B(self, x, k, i, t):            # B-spline function x is the variable, k is the degree, i is the index
       if k == 0:                 # when k = 0, return 1 if t[i] <= x < t[i+1] else 0
          return 1.0 if t[i] <= x < t[i+1] else 0.0
       c1, c2 = 0, 0
@@ -24,14 +24,45 @@ class Bspline():
             trajec[m] += self.B(x[m], k, n, t) * c[n]
       trajec = np.delete(trajec, -1, axis=0)
       return trajec
+   
+class Bspline_basis():
+   def bspline_basis(self, control_points, knots, degree=3):
+      n = len(control_points) - 1
+      m = len(knots) - 1
+      assert (n + degree + 1) == m
+      t = np.linspace(0, max(knots), 100)
+      trajec = np.zeros((len(t), len(control_points[0])))
+      for m in range(len(t)):
+         for i in range(n+1-degree):
+            ii = i + degree
+            print(control_points[ii-degree:ii+1], knots[ii], knots[ii+1], t[m])
+            trajec[m] += self.C(control_points[ii-degree:ii+1], knots[ii], knots[ii+1], t[m])[0]
+      return trajec
+
+   def C(self, cp, ti, ti_1, t):
+      indicator = 1 if ti <= t < ti_1 else 0
+      M_BS_4 = np.array([[-1, 3, -3, 1],
+                        [3, -6, 0, 4],
+                        [-3, 3, 3, 1],
+                        [1, 0, 0, 0]])/6
+      C_t = cp.T @ M_BS_4 @ self.u(ti, ti_1, t)
+      C_t = C_t.reshape(1, -1)
+      print(C_t)
+      return C_t * indicator
+   
+   def u(self, ti, ti_1, t):
+      u_t = (t - ti) / (ti_1 - ti)
+      
+      return np.array([[u_t**3, u_t**2, u_t, 1]]).T
+
 
 def func_2d_test():           # 2D test
-   cv = np.array([[ 50.,  25.],
-   [ 59.,  12.],
-   [ 50.,  10.],
-   [ 57.,   2.],
-   [ 40.,   4.],
-   [ 40.,   14.]])
+   # cv = np.array([[ 50.,  25.],
+   # [ 59.,  12.],
+   # [ 50.,  10.],
+   # [ 57.,   2.],
+   # [ 40.,   4.],
+   # [ 40.,   14.]])
    cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7], [4, 3]])
 
    k = 3
@@ -43,6 +74,17 @@ def func_2d_test():           # 2D test
    plt.xticks([ ii for ii in range(-20, 20)]), plt.yticks([ ii for ii in range(-20, 20)])
    plt.gca().set_aspect('equal', adjustable='box')
    plt.plot(bspline_curve[:,0], bspline_curve[:,1], label='B-spline Curve')
+   plt.legend(loc='upper left')
+   plt.grid(axis='both')
+   print(bspline_curve)
+   plt.show()
+
+   plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
+   traj_prime = Bspline_basis()
+   bspline_curve_prime = traj_prime.bspline_basis(cv, t, k)
+   plt.xticks([ ii for ii in range(-20, 20)]), plt.yticks([ ii for ii in range(-20, 20)])
+   plt.gca().set_aspect('equal', adjustable='box')
+   plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
    plt.legend(loc='upper left')
    plt.grid(axis='both')
    plt.show()
