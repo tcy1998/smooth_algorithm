@@ -32,28 +32,70 @@ class Bspline_basis():
       assert (n + degree + 1) == m
       t = np.linspace(0, max(knots), 100)
       trajec = np.zeros((len(t), len(control_points[0])))
-      for m in range(len(t)):
+      for k in range(len(t)):
          for i in range(n+1-degree):
             ii = i + degree
-            print(control_points[ii-degree:ii+1], knots[ii], knots[ii+1], t[m])
-            trajec[m] += self.C(control_points[ii-degree:ii+1], knots[ii], knots[ii+1], t[m])[0]
+            # print(control_points[ii-degree:ii+1], knots[ii], knots[ii+1], t[m])
+            trajec[k] += self.C(control_points[ii-degree:ii+1], ii, knots, t[k])[0]
+
+      trajec = np.delete(trajec, -1, axis=0)
       return trajec
 
-   def C(self, cp, ti, ti_1, t):
-      indicator = 1 if ti <= t < ti_1 else 0
-      M_BS_4 = np.array([[-1, 3, -3, 1],
-                        [3, -6, 0, 4],
-                        [-3, 3, 3, 1],
-                        [1, 0, 0, 0]])/6
-      C_t = cp.T @ M_BS_4 @ self.u(ti, ti_1, t)
-      C_t = C_t.reshape(1, -1)
+   def C(self, cp, ii, knots, t):
+      ti = knots[ii]
+      ti_plus_1 = knots[ii+1]
+      ti_plus_2 = knots[ii+2]
+      ti_plus_3 = knots[ii+3]
+      ti_minus_1 = knots[ii-1]
+      ti_minus_2 = knots[ii-2]
+
+      indicator = 1 if ti <= t < ti_plus_1 else 0
+
+      common_denominator = (ti_plus_2 - ti_minus_1) * (ti_plus_1 - ti_minus_1)
+      m00 = (ti_plus_1 - ti) ** 2 / ((ti_plus_1 - ti_minus_1) * (ti_plus_1 - ti_minus_2))
+      m02 = (ti - ti_minus_1) ** 2 / common_denominator
+      m01 = 1 - m00 - m02
+      m03, m13, m23 = 0, 0, 0
+      m10, m20, m30 = -3 * m00, 3 * m00, -m00
+      m12 = 3 * (ti_plus_1 - ti) * (ti - ti_minus_1) / common_denominator
+      m11 = 3 * m00 - m12
+      m22 = 3 * (ti_plus_1 - ti) ** 2 / common_denominator
+      m21 = -3 * m00 - m22
+      m33 = (ti_plus_1 - ti) ** 2 / ((ti_plus_3 - ti) * (ti_plus_2 - ti))
+      m32 = -m22/3 - m33 - (ti_plus_1 - ti) ** 2 / ((ti_plus_2 - ti)*(ti_plus_2 - ti_minus_1))
+      m31 = m00  - m32 - m33
+
+      M_BS_4 = np.array([[m00, m01, m02, m03],
+                           [m10, m11, m12, m13],
+                           [m20, m21, m22, m23],
+                           [m30, m31, m32, m33]])
+
+
+      A_3 = np.array([[-0.4302, 0.4568, -0.02698, 0.0004103],
+                [0.8349, -0.4568, -0.7921, 0.4996],
+                [-0.8349, -0.4568, 0.7921, 0.4996],
+                [0.4302, 0.4568, 0.02698, 0.0004103]])
+      inverse_A_3 = np.linalg.inv(A_3)
+      # M_BS_4 = np.array([[1, 4, 1, 0],
+      #                    [-3, 0, 3, 0],
+      #                    [3, -6, 3, 0],
+      #                    [-1, 3, -3, 1]])/6
+      
+      u_t = (t - ti) / (ti_plus_1 - ti)
+      UU = np.array([[1, u_t, u_t ** 2, u_t **3]])
+
+      rotated_M_BS_4 = list(zip(*M_BS_4[::-1]))
+
+      C_t = UU @ M_BS_4 @ cp
       print(C_t)
+      print(cp)
+
+      minvo_cp = cp.T @ rotated_M_BS_4 @ inverse_A_3
+      print(minvo_cp)
+      D_t = UU @ minvo_cp
+      
       return C_t * indicator
    
-   def u(self, ti, ti_1, t):
-      u_t = (t - ti) / (ti_1 - ti)
-      
-      return np.array([[u_t**3, u_t**2, u_t, 1]]).T
 
 
 def func_2d_test():           # 2D test
@@ -87,6 +129,7 @@ def func_2d_test():           # 2D test
    plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
    plt.legend(loc='upper left')
    plt.grid(axis='both')
+   print(bspline_curve_prime)
    plt.show()
 
 
