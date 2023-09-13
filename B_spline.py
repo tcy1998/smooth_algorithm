@@ -145,7 +145,36 @@ def func_3d_test():
    ax.plot(cv[:, 0], cv[:, 1], cv[:, 2], 'o-', label='Control Points')
    plt.show()
 
+def func_2d_closrue_test():           # 2D test
+   cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7], [4, 3], [8,0], [0,0]])
+
+   k = 3
+   t = np.array([0]*k + list(range(len(cv)-k+1)) + [len(cv)-k]*k,dtype='int')
+   print(t)
+   plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
+   traj = Bspline()
+   bspline_curve = traj.bspline(t, cv, k)
+   plt.xticks([ ii for ii in range(-20, 20)]), plt.yticks([ ii for ii in range(-20, 20)])
+   plt.gca().set_aspect('equal', adjustable='box')
+   plt.plot(bspline_curve[:,0], bspline_curve[:,1], label='B-spline Curve')
+   plt.legend(loc='upper left')
+   plt.grid(axis='both')
+   print(bspline_curve)
+   plt.show()
+
+   # plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
+   # traj_prime = Bspline_basis()
+   # bspline_curve_prime = traj_prime.bspline_basis(cv, t, k)
+   # plt.xticks([ ii for ii in range(-20, 20)]), plt.yticks([ ii for ii in range(-20, 20)])
+   # plt.gca().set_aspect('equal', adjustable='box')
+   # plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
+   # plt.legend(loc='upper left')
+   # plt.grid(axis='both')
+   # print(bspline_curve_prime)
+   # plt.show()
+
 if __name__ == '__main__':
-   func_2d_test()
-   func_3d_test()
+   # func_2d_test()
+   # func_3d_test()
+   func_2d_closrue_test()
 
