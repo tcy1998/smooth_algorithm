@@ -105,6 +105,29 @@ def solver_mpc(x_init, y_init, vx_init, vy_init, current_time, timei, timei1):
 
     # ---- input constraints --------
     # opti.subject_to(opti.bounded(-10,U,10)) # control is limited
+    ctrl_constraint_leftupper = lambda ctrl_point: ctrl_point + 10.0
+    ctrl_constraint_rightlower = lambda ctrl_point: ctrl_point - 10.0
+    ctrl_constraint_leftlower = lambda ctrl_point: -ctrl_point - 10.0
+    ctrl_constraint_rightupper = lambda ctrl_point: -ctrl_point + 10.0
+    opti.subject_to(ctrl_constraint_rightlower(ctrl_point_1[0])<=ctrl_point_1[1])
+    opti.subject_to(ctrl_constraint_leftupper(ctrl_point_1[0])>=ctrl_point_1[1])
+    opti.subject_to(ctrl_constraint_leftlower(ctrl_point_1[0])<=ctrl_point_1[1])
+    opti.subject_to(ctrl_constraint_rightupper(ctrl_point_1[0])>=ctrl_point_1[1])
+
+    opti.subject_to(ctrl_constraint_rightlower(ctrl_point_2[0])<=ctrl_point_2[1])
+    opti.subject_to(ctrl_constraint_leftupper(ctrl_point_2[0])>=ctrl_point_2[1])
+    opti.subject_to(ctrl_constraint_leftlower(ctrl_point_2[0])<=ctrl_point_2[1])
+    opti.subject_to(ctrl_constraint_rightupper(ctrl_point_2[0])>=ctrl_point_2[1])
+
+    opti.subject_to(ctrl_constraint_rightlower(ctrl_point_3[0])<=ctrl_point_3[1])
+    opti.subject_to(ctrl_constraint_leftupper(ctrl_point_3[0])>=ctrl_point_3[1])
+    opti.subject_to(ctrl_constraint_leftlower(ctrl_point_3[0])<=ctrl_point_3[1])
+    opti.subject_to(ctrl_constraint_rightupper(ctrl_point_3[0])>=ctrl_point_3[1])
+
+    opti.subject_to(ctrl_constraint_rightlower(ctrl_point_4[0])<=ctrl_point_4[1])
+    opti.subject_to(ctrl_constraint_leftupper(ctrl_point_4[0])>=ctrl_point_4[1])
+    opti.subject_to(ctrl_constraint_leftlower(ctrl_point_4[0])<=ctrl_point_4[1])
+    opti.subject_to(ctrl_constraint_rightupper(ctrl_point_4[0])>=ctrl_point_4[1])
 
     # ---- boundary conditions --------
     opti.subject_to(pos_x[0]==x_init)
@@ -123,7 +146,7 @@ def solver_mpc(x_init, y_init, vx_init, vy_init, current_time, timei, timei1):
 
 # ---- post-processing        ------
 import matplotlib.pyplot as plt
-x_0, y_0, vx_0, vy_0 = -3, 1, 1.0, -1.0
+x_0, y_0, vx_0, vy_0 = -3, 1, 0.5, -1.0
 
 x_log, y_log = [], [] 
 for i in tqdm.tqdm(range(Epi)):
