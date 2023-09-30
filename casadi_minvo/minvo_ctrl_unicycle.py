@@ -4,7 +4,9 @@ import tqdm
 import math
 
 N = 10 # number of control intervals
-Epi = 2000 # number of episodes
+Epi = 100 # number of episodes
+
+gap = 3.0   # gap between upper and lower limit
 
 tau = SX.sym("tau")    # time
 u = SX.sym("u", 8)    # control
@@ -44,6 +46,15 @@ circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 def distance_circle_obs(x, y, circle_obstacles):
     return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
 
+def theta_change(theta):
+    if theta > np.pi:
+        theta = theta - 2*np.pi
+
+    if theta < -np.pi:
+        theta = theta + 2*np.pi
+
+    return theta
+
 def solver_mpc(x_init, y_init, theta_init, current_time):
 
     opti = Opti() # Optimization problem
@@ -54,7 +65,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     pos_y = X[1,:]
     theta = X[2,:]
 
-    U = opti.variable(8, N)   # control points (8*1)
+    U = opti.variable(8, N+1)   # control points (8*1)
     ctrl_point_1 = U[0:2, :]
     ctrl_point_2 = U[2:4, :]
     ctrl_point_3 = U[4:6, :]
@@ -80,8 +91,8 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
         # k4 = f(X[:,k]+dt*k3,   U[:,k], current_time, time_interval[k], time_interval[k+1])
         # x_next = X[:,k] + dt/6*(k1+2*k2+2*k3+k4) 
         # opti.subject_to(X[:,k+1]==x_next) # close the gaps
-        timei = math.floor(time_interval[k])
-        # timei = 0
+        # timei = math.floor(time_interval[k])
+        timei = 0
         timei1 = timei + 1
         k11, k12, k13 = f(X[:,k],         U[:,k], time_interval[k], timei, timei1)
         k21, k22, k23 = f(X[:,k]+dt/2*k11, U[:,k], time_interval[k], timei, timei1)
@@ -94,11 +105,14 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
         opti.subject_to(X[1,k+1]==y_next)
         opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
 
+        opti.subject_to(U[:,k+1]==U[:,k])
+
     # ---- path constraints 1 -----------
-    # limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + 1.0
-    # limit_lower = lambda pos_x: sin(0.5*pi*pos_x) - 0.5
-    # opti.subject_to(limit_lower(pos_x)<=pos_y)
-    # opti.subject_to(pos_y<=limit_upper(pos_x))   # state constraints
+    limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + 2.5
+    limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + 2.5 - gap
+    opti.subject_to(limit_lower(pos_x)<=pos_y)
+    # opti.subject_to(pos_y<=1.5)
+    opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
 
     # ---- path constraints 2 --------  
     # opti.subject_to(pos_y<=1.5)
@@ -110,10 +124,14 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     # ---- input constraints --------
     # opti.subject_to(opti.bounded(-1,U,1)) # control is limited
 
-    ctrl_constraint_leftupper = lambda ctrl_point: ctrl_point + 10.0
-    ctrl_constraint_rightlower = lambda ctrl_point: ctrl_point - 10.0
-    ctrl_constraint_leftlower = lambda ctrl_point: -ctrl_point - 0.5
-    ctrl_constraint_rightupper = lambda ctrl_point: -ctrl_point + 0.5
+    v_limit = 10.0
+    omega_limit = 0.1
+    constraint_k = omega_limit/v_limit
+
+    ctrl_constraint_leftupper = lambda ctrl_point: constraint_k*ctrl_point + omega_limit
+    ctrl_constraint_rightlower = lambda ctrl_point: constraint_k*ctrl_point - omega_limit
+    ctrl_constraint_leftlower = lambda ctrl_point: -constraint_k*ctrl_point - omega_limit
+    ctrl_constraint_rightupper = lambda ctrl_point: -constraint_k*ctrl_point + omega_limit
     opti.subject_to(ctrl_constraint_rightlower(ctrl_point_1[0])<=ctrl_point_1[1])
     opti.subject_to(ctrl_constraint_leftupper(ctrl_point_1[0])>=ctrl_point_1[1])
     opti.subject_to(ctrl_constraint_leftlower(ctrl_point_1[0])<=ctrl_point_1[1])
@@ -136,7 +154,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
     # ---- boundary conditions --------
     opti.subject_to(pos_x[0]==x_init)
-    opti.subject_to(pos_y[0]==y_init)   # start at position (0,0)
+    opti.subject_to(pos_y[0]==y_init)   
     opti.subject_to(theta[0]==theta_init)
 
 
@@ -154,16 +172,17 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
 # ---- post-processing        ------
 import matplotlib.pyplot as plt
-x_0, y_0, theta = -3, 1, np.pi/2
+x_0, y_0, theta = -3, 1, np.pi*-0.7
 
-x_log, y_log = [], []
-theta_log = []
+x_log, y_log = [x_0], [y_0]
+theta_log = [theta]
 curve_degree = 3
 control_pt_num = 4
 time_knots_num = control_pt_num + curve_degree + 1
 for i in tqdm.tqdm(range(Epi)):
 
     x_0, y_0, theta = solver_mpc(x_0, y_0, theta, i*dt)
+    theta = theta_change(theta)
     x_log.append(x_0)
     y_log.append(y_0)
     theta_log.append(theta)
@@ -194,9 +213,9 @@ plt.ylabel('pos_y')
 plt.axis([-4.0, 4.0, -4.0, 4.0])
 
 x = np.arange(-4,4,0.01)
-y = np.sin(0.5 * pi * x) +1
+y = np.sin(0.5 * pi * x) +2.5
 plt.plot(x, y, 'g-', label='upper limit')
-plt.plot(x, y-1.5, 'b-', label='lower limit')
+plt.plot(x, y-gap, 'b-', label='lower limit')
 # plt.draw()
 # plt.pause(1)
 # input("<Hit Enter>")
