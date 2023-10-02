@@ -6,6 +6,7 @@ import math
 N = 10 # number of control intervals
 Epi = 100 # number of episodes
 
+initial_pos_sin_obs = 1.5
 gap = 3.0   # gap between upper and lower limit
 
 tau = SX.sym("tau")    # time
@@ -108,8 +109,8 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
         opti.subject_to(U[:,k+1]==U[:,k])
 
     # ---- path constraints 1 -----------
-    limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + 2.5
-    limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + 2.5 - gap
+    limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
+    limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs - gap
     opti.subject_to(limit_lower(pos_x)<=pos_y)
     # opti.subject_to(pos_y<=1.5)
     opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
@@ -161,8 +162,8 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     # ---- solve NLP              ------
     opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
     
-    # opti.solver("ipopt", opts) # set numerical backend
-    opti.solver("ipopt") # set numerical backend
+    opti.solver("ipopt", opts) # set numerical backend
+    # opti.solver("ipopt") # set numerical backend
     
 
     sol = opti.solve()   # actual solve
@@ -172,55 +173,46 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
 # ---- post-processing        ------
 import matplotlib.pyplot as plt
-x_0, y_0, theta = -3, 1, np.pi*-0.7
 
-x_log, y_log = [x_0], [y_0]
-theta_log = [theta]
-curve_degree = 3
-control_pt_num = 4
-time_knots_num = control_pt_num + curve_degree + 1
-for i in tqdm.tqdm(range(Epi)):
+### One time testing
+# x_0, y_0, theta = -3, 1, np.pi*-0.7
 
-    x_0, y_0, theta = solver_mpc(x_0, y_0, theta, i*dt)
-    theta = theta_change(theta)
-    x_log.append(x_0)
-    y_log.append(y_0)
-    theta_log.append(theta)
-    if x_0 ** 2 + y_0 ** 2 < 0.01:
-        break
-    # try:
-    #     x_0, y_0, vx_0, vy_0 = solver_mpc(x_0, y_0, vx_0, vy_0)
-    #     x_log.append(x_0)
-    #     y_log.append(y_0)
-    #     if x_0 ** 2 + y_0 ** 2 < 0.01:
-    #         break
-    # except RuntimeError:
-    #     print('RuntimeError')
-    #     break
+# x_log, y_log = [x_0], [y_0]
+# theta_log = [theta]
+# curve_degree = 3
+# control_pt_num = 4
+# time_knots_num = control_pt_num + curve_degree + 1
 
-print(x_0, y_0)
-# print(x_log, y_log)
+# for i in tqdm.tqdm(range(Epi)):
 
-t = np.arange(0, len(x_log), 1)
-plt.plot(t, theta_log, 'r-')
-plt.show()
+#     x_0, y_0, theta = solver_mpc(x_0, y_0, theta, i*dt)
+#     theta = theta_change(theta)
+#     x_log.append(x_0)
+#     y_log.append(y_0)
+#     theta_log.append(theta)
+#     if x_0 ** 2 + y_0 ** 2 < 0.01:
+#         break
 
-plt.plot(x_log, y_log, 'r-')
-plt.plot(0,0,'bo')
-plt.plot(-3, 1, 'go')
-plt.xlabel('pos_x')
-plt.ylabel('pos_y')
-plt.axis([-4.0, 4.0, -4.0, 4.0])
+### Plot for theta
+# t = np.arange(0, len(x_log), 1)
+# plt.plot(t, theta_log, 'r-')
+# plt.show()
 
-x = np.arange(-4,4,0.01)
-y = np.sin(0.5 * pi * x) +2.5
-plt.plot(x, y, 'g-', label='upper limit')
-plt.plot(x, y-gap, 'b-', label='lower limit')
-# plt.draw()
-# plt.pause(1)
-# input("<Hit Enter>")
-# plt.close()
+### Plot for sin obstacles
+# plt.plot(x_log, y_log, 'r-')
+# plt.plot(0,0,'bo')
+# plt.plot(-3, 1, 'go')
+# plt.xlabel('pos_x')
+# plt.ylabel('pos_y')
+# plt.axis([-4.0, 4.0, -4.0, 4.0])
 
+# x = np.arange(-4,4,0.01)
+# y = np.sin(0.5 * pi * x) +2.5
+# plt.plot(x, y, 'g-', label='upper limit')
+# plt.plot(x, y-gap, 'b-', label='lower limit')
+# plt.show()
+
+### Plot for circle obstacles
 # target_circle1 = plt.Circle((circle_obstacles_1['x'], circle_obstacles_1['y']), circle_obstacles_1['r'], color='b', fill=False)
 # target_circle2 = plt.Circle((circle_obstacles_2['x'], circle_obstacles_2['y']), circle_obstacles_2['r'], color='b', fill=False)
 # target_circle3 = plt.Circle((circle_obstacles_3['x'], circle_obstacles_3['y']), circle_obstacles_3['r'], color='b', fill=False)
@@ -236,4 +228,40 @@ plt.plot(x, y-gap, 'b-', label='lower limit')
 # input("<Hit Enter>")
 # plt.close()
 
-plt.show()
+## MPC with different initial theta
+
+def MPC_diff_init(x_0, y_0, theta_0):
+    Epis = 1000
+    x_log, y_log = [x_0], [y_0]
+    curve_degree = 3
+    control_pt_num = 4
+    time_knots_num = control_pt_num + curve_degree + 1
+    for t in tqdm.tqdm(range(Epis)):
+        try:
+            x_0, y_0, theta_0 = solver_mpc(x_0, y_0, theta_0, t*dt)
+            x_log.append(x_0)
+            y_log.append(y_0)
+            if x_0 ** 2 + y_0 ** 2 < 0.01:
+                return [1, theta_0], x_log, y_log
+        except RuntimeError:
+            return [0, theta_0], x_log, y_log
+    return [0, theta_0], x_log, y_log
+
+THETA = np.arange(-np.pi, np.pi, 0.1)
+LOG_theta = []
+LOG_traj = []
+ii = 0
+for theta in THETA:
+    print("epsidoe", ii)
+    Data_vel, Data_tarj_x, Data_tarj_y = MPC_diff_init(-3, 1, theta)
+    LOG_theta.append(Data_vel)
+    LOG_traj.append([Data_tarj_x, Data_tarj_y])
+    ii += 1
+
+import pickle
+
+with open('LOG_initial_theta_env2.pkl', 'wb') as f:
+    pickle.dump(LOG_theta, f)
+
+with open('LOG_traj_env_2.pkl', 'wb') as f:
+    pickle.dump(LOG_traj, f)
