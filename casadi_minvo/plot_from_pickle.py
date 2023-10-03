@@ -64,7 +64,6 @@ print(len(LOG_traj))
 ### Print Trajectory ###
 for i in range(len(LOG_traj)):
     if len(LOG_traj[i][0]) > 0:
-        # print(LOG_traj[i])
         traj_end_x = LOG_traj[i][0][-1]
         traj_end_y = LOG_traj[i][1][-1]
         traj_start_x = LOG_traj[i][0][0]
@@ -73,7 +72,6 @@ for i in range(len(LOG_traj)):
         else:
             plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'r-', linewidth=0.5)
     print(len(LOG_traj[i]))
-    # plt.plot(x_log, y_log, 'r-')
 
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')
@@ -103,7 +101,6 @@ print(len(LOG_traj))
 ### Print Trajectory ###
 for i in range(len(LOG_traj)):
     if len(LOG_traj[i][0]) > 0:
-        # print(LOG_traj[i])
         traj_end_x = LOG_traj[i][0][-1]
         traj_end_y = LOG_traj[i][1][-1]
         traj_start_x = LOG_traj[i][0][0]
@@ -112,7 +109,69 @@ for i in range(len(LOG_traj)):
         else:
             plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'r-', linewidth=0.5)
     print(len(LOG_traj[i]))
-    # plt.plot(x_log, y_log, 'r-')
+
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')
+
+plt.show()
+
+### Print Obstacles ###
+x = np.arange(-3.5,0.5,0.01)
+y = np.sin(0.5 * np.pi * x) + 1.0
+plt.axis([-3.5, 0.5, -1.8, 2.4])
+plt.plot(x, y, color='k', linewidth=1.2)
+plt.plot(x, y-2, color='k', linewidth=1.2)
+plt.fill_between(x, 3, y, color='whitesmoke')
+plt.fill_between(x, y-2, -2.0, color='whitesmoke')
+
+### Load Trajectory Data ###
+with open('LOG_traj_env_3.pkl', 'rb') as f:
+    LOG_traj = pickle.load(f)
+print(len(LOG_traj))
+
+### Print Trajectory ###
+for i in range(len(LOG_traj)):
+    if len(LOG_traj[i][0]) > 0:
+        traj_end_x = LOG_traj[i][0][-1]
+        traj_end_y = LOG_traj[i][1][-1]
+        traj_start_x = LOG_traj[i][0][0]
+        if traj_end_x ** 2 + traj_end_y ** 2 < 0.1 ** 2:
+            plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'b-', linewidth=0.5)
+        else:
+            plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'r-', linewidth=0.5)
+    print(len(LOG_traj[i]))
+
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')
+
+plt.show()
+
+
+### Print Obstacles ###
+x = np.arange(-3.5,0.5,0.01)
+y = np.sin(0.5 * np.pi * x) + 2.0
+plt.axis([-3.5, 0.5, -1.8, 2.4])
+plt.plot(x, y, color='k', linewidth=1.2)
+plt.plot(x, y-4, color='k', linewidth=1.2)
+plt.fill_between(x, 3, y, color='whitesmoke')
+plt.fill_between(x, y-4, -2.0, color='whitesmoke')
+
+### Load Trajectory Data ###
+with open('LOG_traj_env_4.pkl', 'rb') as f:
+    LOG_traj = pickle.load(f)
+print(len(LOG_traj))
+
+### Print Trajectory ###
+for i in range(len(LOG_traj)):
+    if len(LOG_traj[i][0]) > 0:
+        traj_end_x = LOG_traj[i][0][-1]
+        traj_end_y = LOG_traj[i][1][-1]
+        traj_start_x = LOG_traj[i][0][0]
+        if traj_end_x ** 2 + traj_end_y ** 2 < 0.1 ** 2:
+            plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'b-', linewidth=0.5)
+        else:
+            plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'r-', linewidth=0.5)
+    print(len(LOG_traj[i]))
 
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')

@@ -6,8 +6,8 @@ import math
 N = 10 # number of control intervals
 Epi = 100 # number of episodes
 
-initial_pos_sin_obs = 1.5
-gap = 3.0   # gap between upper and lower limit
+initial_pos_sin_obs = 1
+gap = 2   # gap between upper and lower limit
 
 tau = SX.sym("tau")    # time
 u = SX.sym("u", 8)    # control
@@ -260,8 +260,8 @@ for theta in THETA:
 
 import pickle
 
-with open('LOG_initial_theta_env2.pkl', 'wb') as f:
+with open('LOG_initial_theta_env3.pkl', 'wb') as f:
     pickle.dump(LOG_theta, f)
 
-with open('LOG_traj_env_2.pkl', 'wb') as f:
+with open('LOG_traj_env_3.pkl', 'wb') as f:
     pickle.dump(LOG_traj, f)
