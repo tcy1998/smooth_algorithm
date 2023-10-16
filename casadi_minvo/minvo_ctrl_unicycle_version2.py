@@ -4,11 +4,10 @@ import tqdm
 import math
 
 N = 40 # number of control intervals
-Epi = 1000 # number of episodes
+Epi = 500 # number of episodes
 
 gap = 4   # gap between upper and lower limit
 initial_pos_sin_obs = gap/2   # initial position of sin obstacles
-
 
 tau = SX.sym("tau")    # time
 u = SX.sym("u", 8)    # control
@@ -45,6 +44,9 @@ circle_obstacles_1 = {'x': 0.5, 'y': 0.5, 'r': 0.5}
 circle_obstacles_2 = {'x': -0.5, 'y': -0.5, 'r': 0.5}
 circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 
+poly_degree = 3
+num_ctrl_points = 4
+
 def distance_circle_obs(x, y, circle_obstacles):
     return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
 
@@ -67,12 +69,17 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     pos_y = X[1,:]
     theta = X[2,:]
 
-    U = opti.variable(8, N+1)   # control points (8*1)
+    U = opti.variable(8, 1)   # control points (8*1)
     ctrl_point_1 = U[0:2, :]
     ctrl_point_2 = U[2:4, :]
     ctrl_point_3 = U[4:6, :]
     ctrl_point_4 = U[6:8, :]
 
+    # Clamped uniform time knots
+    # time_knots = np.array([0]*poly_degree + list(range(num_ctrl_points-poly_degree+1)) + [num_ctrl_points-poly_degree]*poly_degree,dtype='int')
+
+    # Uniform B spline time knots
+    # time_knots = np.linspace(0, num_ctrl_points+poly_degree, num_ctrl_points+poly_degree)
 
     # Objective term
     State_xy = X[0:2, :]
@@ -86,19 +93,16 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
         # timei = math.floor(time_interval[k])
         timei = current_time
         timei1 = timei + dt*N
-        k11, k12, k13 = f(X[:,k],         U[:,k], time_interval[k], timei, timei1)
-        k21, k22, k23 = f(X[:,k]+dt/2*k11, U[:,k], time_interval[k], timei, timei1)
-        k31, k32, k33 = f(X[:,k]+dt/2*k21, U[:,k], time_interval[k], timei, timei1)
-        k41, k42, k43 = f(X[:,k]+dt*k31,   U[:,k], time_interval[k], timei, timei1)
+        k11, k12, k13 = f(X[:,k],         U[:], time_interval[k], timei, timei1)
+        k21, k22, k23 = f(X[:,k]+dt/2*k11, U[:], time_interval[k], timei, timei1)
+        k31, k32, k33 = f(X[:,k]+dt/2*k21, U[:], time_interval[k], timei, timei1)
+        k41, k42, k43 = f(X[:,k]+dt*k31,   U[:], time_interval[k], timei, timei1)
         x_next = X[0,k] + dt/6*(k11+2*k21+2*k31+k41)
         y_next = X[1,k] + dt/6*(k12+2*k22+2*k32+k42)
         theta_next = X[2,k] + dt/6*(k13+2*k23+2*k33+k43)
         opti.subject_to(X[0,k+1]==x_next)
         opti.subject_to(X[1,k+1]==y_next)
         opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
-
-        opti.subject_to(U[:,k]==U[:,k-1])
-
 
     # ---- path constraints 1 -----------
     limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
@@ -158,7 +162,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     sol = opti.solve()   # actual solve
 
 
-    return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U)
+    return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1])
 
 # ---- post-processing        ------
 import matplotlib.pyplot as plt
@@ -168,33 +172,23 @@ x_0, y_0, theta = -3, 1, np.pi*-0.3
 
 x_log, y_log = [x_0], [y_0]
 theta_log = [theta]
-U_log = []
 curve_degree = 3
 control_pt_num = 4
 time_knots_num = control_pt_num + curve_degree + 1
 
 for i in tqdm.tqdm(range(Epi)):
 
-    x_0, y_0, theta, U = solver_mpc(x_0, y_0, theta, i*dt)
-    # theta = theta_change(theta)
+    x_0, y_0, theta = solver_mpc(x_0, y_0, theta, i*dt)
     x_log.append(x_0)
     y_log.append(y_0)
     theta_log.append(theta)
-    U_log.append(U)
     if x_0 ** 2 + y_0 ** 2 < 0.01:
         break
 
-### Plot for control
-ctrl_point_1 = U_log[0][0:2, :]
-ctrl_point_2 = U_log[0][2:4, :]
-ctrl_point_3 = U_log[0][4:6, :]
-ctrl_point_4 = U_log[0][6:8, :]
-
-
 ## Plot for theta
-# t = np.arange(0, (len(x_log))*dt, dt)
-# plt.plot(t, theta_log, 'r-')
-# plt.show()
+t = np.arange(0, len(x_log), 1)
+plt.plot(t, theta_log, 'r-')
+plt.show()
 
 ## Plot for sin obstacles
 plt.plot(x_log, y_log, 'r-')
@@ -258,8 +252,8 @@ plt.show()
 
 # import pickle
 
-# with open('LOG_initial_theta_env3.pkl', 'wb') as f:
+# with open('LOG_initial_theta_env4.pkl', 'wb') as f:
 #     pickle.dump(LOG_theta, f)
 
-# with open('LOG_traj_env_3.pkl', 'wb') as f:
+# with open('LOG_traj_env_4.pkl', 'wb') as f:
 #     pickle.dump(LOG_traj, f)
