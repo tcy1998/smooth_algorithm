@@ -76,10 +76,10 @@ class Bspline_basis():
                 [-0.8349, -0.4568, 0.7921, 0.4996],
                 [0.4302, 0.4568, 0.02698, 0.0004103]])
       inverse_A_3 = np.linalg.inv(A_3)
-      # M_BS_4 = np.array([[1, 4, 1, 0],
-      #                    [-3, 0, 3, 0],
-      #                    [3, -6, 3, 0],
-      #                    [-1, 3, -3, 1]])/6
+      M_BS_4 = np.array([[1, 4, 1, 0],
+                         [-3, 0, 3, 0],
+                         [3, -6, 3, 0],
+                         [-1, 3, -3, 1]])/6
       
       u_t = (t - ti) / (ti_plus_1 - ti)
       UU = np.array([[1, u_t, u_t ** 2, u_t **3]])
@@ -105,7 +105,7 @@ def func_2d_test():           # 2D test
    # [ 57.,   2.],
    # [ 40.,   4.],
    # [ 40.,   14.]])
-   cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7], [4, 3]])
+   # cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7], [4, 3]])
    cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7]])
 
    k = 3
@@ -119,7 +119,7 @@ def func_2d_test():           # 2D test
    plt.plot(bspline_curve[:,0], bspline_curve[:,1], label='B-spline Curve')
    plt.legend(loc='upper left')
    plt.grid(axis='both')
-   print(bspline_curve)
+   # print(bspline_curve)
    plt.show()
 
    plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
@@ -130,7 +130,7 @@ def func_2d_test():           # 2D test
    plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
    plt.legend(loc='upper left')
    plt.grid(axis='both')
-   print(bspline_curve_prime)
+   # print(bspline_curve_prime)
    plt.show()
 
 
