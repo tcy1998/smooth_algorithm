@@ -101,10 +101,10 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
 
     # ---- path constraints 1 -----------
-    limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
-    limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs - gap
-    opti.subject_to(limit_lower(pos_x)<pos_y)
-    opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
+    # limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
+    # limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs - gap
+    # opti.subject_to(limit_lower(pos_x)<pos_y)
+    # opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
 
     # ---- path constraints 2 --------  
     # opti.subject_to(pos_y<=1.5)
@@ -115,7 +115,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
     # ---- input constraints --------
     v_limit = 10.0
-    omega_limit = 0.5
+    omega_limit = 0.1
     constraint_k = omega_limit/v_limit
 
     ctrl_constraint_leftupper = lambda ctrl_point: constraint_k*ctrl_point + omega_limit

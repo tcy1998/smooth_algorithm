@@ -90,9 +90,9 @@ class Bspline_basis():
       print(C_t)
       print(cp)
 
-      minvo_cp = cp.T @ rotated_M_BS_4 @ inverse_A_3
-      print(minvo_cp)
-      D_t = UU @ minvo_cp
+      # minvo_cp = cp.T @ rotated_M_BS_4 @ inverse_A_3
+      # print(minvo_cp)
+      # D_t = UU @ minvo_cp
       
       return C_t * indicator
    
@@ -106,6 +106,7 @@ def func_2d_test():           # 2D test
    # [ 40.,   4.],
    # [ 40.,   14.]])
    cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7], [4, 3]])
+   cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7]])
 
    k = 3
    t = np.array([0]*k + list(range(len(cv)-k+1)) + [len(cv)-k]*k,dtype='int')
@@ -174,7 +175,7 @@ def func_2d_closrue_test():           # 2D test
    # plt.show()
 
 if __name__ == '__main__':
-   # func_2d_test()
+   func_2d_test()
    # func_3d_test()
-   func_2d_closrue_test()
+   # func_2d_closrue_test()
 

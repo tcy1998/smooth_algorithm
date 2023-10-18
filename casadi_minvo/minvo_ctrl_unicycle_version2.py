@@ -2,6 +2,7 @@ import numpy as np
 from casadi import *
 import tqdm
 import math
+from B_spline import Bspline, Bspline_basis
 
 N = 40 # number of control intervals
 Epi = 500 # number of episodes
@@ -62,7 +63,7 @@ def theta_change(theta):
 def solver_mpc(x_init, y_init, theta_init, current_time):
 
     opti = Opti() # Optimization problem
-    time_interval = np.arange(0, N) *dt/N + current_time # time interval
+    time_interval = np.arange(0, N) *dt/N #+ current_time # time interval
     # ---- decision variables ---------
     X = opti.variable(3, N+1) # state trajectory
     pos_x = X[0,:]
@@ -90,9 +91,9 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
     for k in range(N): # loop over control intervals
         # Runge-Kutta 4 integration
-        timei = current_time #+ (k-1)*dt
-        # timei = 0
-        timei1 = timei + N*dt
+        # timei = current_time #+ (k-1)*dt
+        timei = 0
+        timei1 = 1
         k11, k12, k13 = f(X[:,k],         U[:], time_interval[k], timei, timei1)
         k21, k22, k23 = f(X[:,k]+dt/2*k11, U[:], time_interval[k], timei, timei1)
         k31, k32, k33 = f(X[:,k]+dt/2*k21, U[:], time_interval[k], timei, timei1)
@@ -164,7 +165,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     sol = opti.solve()   # actual solve
     opti.debug.value(pos_x[1])
 
-    return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1])
+    return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
 
 # ---- post-processing        ------
 import matplotlib.pyplot as plt
@@ -178,12 +179,26 @@ curve_degree = 3
 control_pt_num = 4
 time_knots_num = control_pt_num + curve_degree + 1
 
+step_plotting = True
+
 for i in tqdm.tqdm(range(Epi)):
 
-    x_0, y_0, theta = solver_mpc(x_0, y_0, theta, i*dt)
+    x_0, y_0, theta, U, X = solver_mpc(x_0, y_0, theta, i*dt)
     x_log.append(x_0)
     y_log.append(y_0)
     theta_log.append(theta)
+    if step_plotting == True:
+        plt.plot(X[0,:], X[1,:], 'r-')
+        plt.plot(x_0, y_0, 'bo')
+        plt.show()
+
+        ctrl_points = np.array([[U[0], U[2], U[4], U[6]], [U[1], U[3], U[5], U[7]]])
+        t = 
+        plt.plot(U[0], U[1], 'bo')
+        plt.plot(U[2], U[3], 'bo')
+        plt.plot(U[4], U[5], 'bo')
+        plt.plot(U[6], U[7], 'bo')
+        plt.show()
     if x_0 ** 2 + y_0 ** 2 < 0.01:
         break
 
