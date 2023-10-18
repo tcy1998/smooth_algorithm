@@ -6,7 +6,7 @@ import math
 N = 40 # number of control intervals
 Epi = 500 # number of episodes
 
-gap = 4   # gap between upper and lower limit
+gap = 2.5   # gap between upper and lower limit
 initial_pos_sin_obs = gap/2   # initial position of sin obstacles
 
 tau = SX.sym("tau")    # time
@@ -83,16 +83,16 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
     # Objective term
     State_xy = X[0:2, :]
-    L = 100*sumsqr(State_xy) + sumsqr(U) # sum of QP terms
+    L = 10000*sumsqr(State_xy) + sumsqr(U) # sum of QP terms
 
     # ---- objective          ---------
     opti.minimize(L) # race in minimal time 
 
     for k in range(N): # loop over control intervals
         # Runge-Kutta 4 integration
-        # timei = math.floor(time_interval[k])
-        timei = current_time
-        timei1 = timei + dt*N
+        timei = current_time #+ (k-1)*dt
+        # timei = 0
+        timei1 = timei + N*dt
         k11, k12, k13 = f(X[:,k],         U[:], time_interval[k], timei, timei1)
         k21, k22, k23 = f(X[:,k]+dt/2*k11, U[:], time_interval[k], timei, timei1)
         k31, k32, k33 = f(X[:,k]+dt/2*k21, U[:], time_interval[k], timei, timei1)
@@ -107,7 +107,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     # ---- path constraints 1 -----------
     limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
     limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs - gap
-    opti.subject_to(limit_lower(pos_x)<=pos_y)
+    opti.subject_to(limit_lower(pos_x)<pos_y)
     opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
 
     # ---- path constraints 2 --------  
@@ -157,10 +157,12 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     
     opti.solver("ipopt", opts) # set numerical backend
     # opti.solver("ipopt") # set numerical backend
+
     
 
-    sol = opti.solve()   # actual solve
 
+    sol = opti.solve()   # actual solve
+    opti.debug.value(pos_x[1])
 
     return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1])
 
@@ -196,9 +198,9 @@ plt.plot(0,0,'bo')
 plt.plot(-3, 1, 'go')
 plt.xlabel('pos_x')
 plt.ylabel('pos_y')
-plt.axis([-4.0, 4.0, -4.0, 4.0])
+# plt.axis([-4.0, 4.0, -4.0, 4.0])
 
-x = np.arange(-4,4,0.01)
+x = np.arange(-7,4,0.01)
 y = np.sin(0.5 * pi * x) + initial_pos_sin_obs
 plt.plot(x, y, 'g-', label='upper limit')
 plt.plot(x, y-gap, 'b-', label='lower limit')

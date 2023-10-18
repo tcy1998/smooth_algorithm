@@ -97,13 +97,13 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
         opti.subject_to(X[1,k+1]==y_next)
         opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
 
-        opti.subject_to(U[:,k]==U[:,k-1])
+        # opti.subject_to(U[:,k]==U[:,k-1])
 
 
     # ---- path constraints 1 -----------
     limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
     limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs - gap
-    opti.subject_to(limit_lower(pos_x)<=pos_y)
+    opti.subject_to(limit_lower(pos_x)<pos_y)
     opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
 
     # ---- path constraints 2 --------  
@@ -164,7 +164,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 import matplotlib.pyplot as plt
 
 ### One time testing
-x_0, y_0, theta = -3, 1, np.pi*-0.3
+x_0, y_0, theta = -7, 1, np.pi*-0.3
 
 x_log, y_log = [x_0], [y_0]
 theta_log = [theta]
@@ -192,9 +192,9 @@ ctrl_point_4 = U_log[0][6:8, :]
 
 
 ## Plot for theta
-# t = np.arange(0, (len(x_log))*dt, dt)
-# plt.plot(t, theta_log, 'r-')
-# plt.show()
+t = np.arange(0, (len(x_log))*dt, dt)
+plt.plot(t, theta_log, 'r-')
+plt.show()
 
 ## Plot for sin obstacles
 plt.plot(x_log, y_log, 'r-')
