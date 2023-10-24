@@ -1,3 +1,7 @@
+
+
+
+
 import numpy as np
 from casadi import *
 import tqdm
@@ -7,7 +11,7 @@ from B_spline import Bspline, Bspline_basis
 N = 20 # number of control intervals
 Epi = 500 # number of episodes
 
-gap = 4.5   # gap between upper and lower limit
+gap = 3.0   # gap between upper and lower limit
 initial_pos_sin_obs = gap/2   # initial position of sin obstacles
 
 tau = SX.sym("tau")    # time
@@ -60,10 +64,17 @@ def theta_change(theta):
 
     return theta
 
+def find_floor(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    if array[idx] > value:
+        idx = idx - 1
+    return idx
+
 def solver_mpc(x_init, y_init, theta_init, current_time):
 
     opti = Opti() # Optimization problem
-    time_interval = np.arange(0, N) *dt/N #+ current_time # time interval
+    time_interval = np.arange(0, N) *dt #+ current_time # time interval
     # ---- decision variables ---------
     X = opti.variable(3, N+1) # state trajectory
     pos_x = X[0,:]
@@ -71,17 +82,21 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     theta = X[2,:]
 
     U = opti.variable(8, 1)   # control points (8*1)
-    ctrl_point_1 = U[0:2, :]
-    ctrl_point_2 = U[2:4, :]
-    ctrl_point_3 = U[4:6, :]
-    ctrl_point_4 = U[6:8, :]
+    # ctrl_point_1 = U[0:2]
+    # ctrl_point_2 = U[2:4]
+    # ctrl_point_3 = U[4:6]
+    # ctrl_point_4 = U[6:8]
+
+    ctrl_point_1 = [U[0], U[4]]
+    ctrl_point_2 = [U[1], U[5]]
+    ctrl_point_3 = [U[2], U[6]]
+    ctrl_point_4 = [U[3], U[7]]
 
     # Clamped uniform time knots
     # time_knots = np.array([0]*poly_degree + list(range(num_ctrl_points-poly_degree+1)) + [num_ctrl_points-poly_degree]*poly_degree,dtype='int')
 
     # Uniform B spline time knots
-    # time_knots = np.linspace(0, num_ctrl_points+poly_degree, num_ctrl_points+poly_degree)
-
+    t2 = np.array(list(range(4+curve_degree+1)))*dt*N/(4+curve_degree)
     # Objective term
     State_xy = X[0:2, :]
     L = 100*sumsqr(State_xy) + sumsqr(U) # sum of QP terms
@@ -92,8 +107,10 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     for k in range(N): # loop over control intervals
         # Runge-Kutta 4 integration
         # timei = current_time #+ (k-1)*dt
-        timei = 0
-        timei1 = 1
+        index_ = find_floor(t2, time_interval[k])
+        # print(time_interval[k], index_)
+        timei = t2[index_]
+        timei1 = t2[index_+1]
         k11, k12, k13 = f(X[:,k],         U[:], time_interval[k], timei, timei1)
         k21, k22, k23 = f(X[:,k]+dt/2*k11, U[:], time_interval[k], timei, timei1)
         k31, k32, k33 = f(X[:,k]+dt/2*k21, U[:], time_interval[k], timei, timei1)
@@ -105,11 +122,16 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
         opti.subject_to(X[1,k+1]==y_next)
         opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
 
+
     # ---- path constraints 1 -----------
     limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
     limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs - gap
-    opti.subject_to(limit_lower(pos_x)<pos_y)
+    # opti.subject_to(limit_lower(pos_x)<pos_y)
     opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
+
+    # indicator_obs = 0
+    # for k in range(N):
+    #     indicator_obs += 0.0 if limit_lower(pos_x[k]) < pos_y[k] else 1.0
 
     # ---- path constraints 2 --------  
     # opti.subject_to(pos_y<=1.5)
@@ -120,7 +142,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
 
     # ---- input constraints --------
     v_limit = 10.0
-    omega_limit = 3.0
+    omega_limit = 2.0
     constraint_k = omega_limit/v_limit
 
     ctrl_constraint_leftupper = lambda ctrl_point: constraint_k*ctrl_point + omega_limit
@@ -190,29 +212,42 @@ for i in tqdm.tqdm(range(Epi)):
     if step_plotting == True:
         plt.plot(X[0,:], X[1,:], 'r-')
         plt.plot(x_0, y_0, 'bo')
+        plt.plot(X[0,0], X[1,0], 'go')
+        x = np.arange(-7,4,0.01)
+        y = np.sin(0.5 * pi * x) + initial_pos_sin_obs
+        plt.plot(x, y, 'g-', label='upper limit')
+        plt.plot(x, y-gap, 'b-', label='lower limit')
         plt.show()
 
-        ctrl_points = np.array([U[0:2], U[2:4], U[4:6], U[6:8]])
-        print(ctrl_points)
-        t = np.array([0]*curve_degree + list(range(len(ctrl_points)-curve_degree+1)) + [len(ctrl_points)-curve_degree]*curve_degree,dtype='int')
-        t = t * dt *N
-        print(t)
+        # ctrl_points = np.array([U[0:2], U[2:4], U[4:6], U[6:8]])
+        ctrl_point_1 = [U[0], U[4]]
+        ctrl_point_2 = [U[1], U[5]]
+        ctrl_point_3 = [U[2], U[6]]
+        ctrl_point_4 = [U[3], U[7]]
+        ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
+        print("ctrl_points" ,ctrl_points)
+        # t1 = np.array([0]*curve_degree + list(range(len(ctrl_points)-curve_degree+1)) + [len(ctrl_points)-curve_degree]*curve_degree,dtype='int')
+        # t1 = t1 * dt *N
+        # print(t1)
 
         ### Plot for B-spline curve
-        plt.plot(ctrl_points[:,0],ctrl_points[:,1], 'o-', label='Control Points')
-        traj = Bspline()
-        bspline_curve = traj.bspline(t, ctrl_points, curve_degree)
-        plt.plot(bspline_curve[:,0], bspline_curve[:,1], label='B-spline Curve')
-        plt.legend(loc='upper right')
-        plt.grid(axis='both')
-        plt.show()
+        # plt.plot(ctrl_points[:,0],ctrl_points[:,1], 'o-', label='Control Points')
+        # traj = Bspline()
+        # bspline_curve = traj.bspline(t1, ctrl_points, curve_degree)
+        # plt.plot(bspline_curve[:,0], bspline_curve[:,1], label='B-spline Curve')
+        # plt.legend(loc='upper right')
+        # plt.grid(axis='both')
+        # plt.show()
 
         ### Plot for B-spline basis
+        # t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*dt/N
+        t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*dt*N/(len(ctrl_points)+curve_degree)
+        print(t2)
         plt.plot(ctrl_points[:,0],ctrl_points[:,1], 'o-', label='Control Points')
         traj_prime = Bspline_basis()
-        bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
+        bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t2, curve_degree)
         plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
-        plt.legend(loc='upper left')
+        plt.legend(loc='upper right')
         plt.show()
     if x_0 ** 2 + y_0 ** 2 < 0.01:
         break

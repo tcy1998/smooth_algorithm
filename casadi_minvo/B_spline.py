@@ -2,44 +2,87 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Bspline():
-   def B(self, x, k, i, t):            # B-spline function x is the variable, k is the degree, i is the index
-      if k == 0:                 # when k = 0, return 1 if t[i] <= x < t[i+1] else 0
-         return 1.0 if t[i] <= x < t[i+1] else 0.0
+   def B(self, t, k, i, time_knots):            # B-spline function t is the variable, k is the degree, i is the index
+      if k == 0:
+         return 1.0 if time_knots[i] <= t < time_knots[i+1] else 0.0
       c1, c2 = 0, 0
-      d1 = t[i+k] - t[i]
-      d2 = t[i+k+1] - t[i+1]
+      d1 = time_knots[i+k] - time_knots[i]
+      d2 = time_knots[i+k+1] - time_knots[i+1]
       if d1 > 0:
-         c1 = ((x - t[i]) / d1) * self.B(x, k-1, i, t)
+         c1 = ((t - time_knots[i]) / d1) * self.B(t, k-1, i, time_knots)
       if d2 > 0:
-         c2 = ((t[i+k+1] - x) / d2) * self.B(x, k-1, i+1, t)
+         c2 = ((time_knots[i+k+1] - t) / d2) * self.B(t, k-1, i+1, time_knots)
       return c1 + c2
+   
+   # def in_last_interval(self, knot, t):
+   #    if len(knot) < 2:
+   #       return False
+   #    return knot[-2] <= t <= knot[-1]
 
-   def bspline(self, t, c, k):         # t: knot vector, c: control points, k: degree
-      n = len(t) - k - 1         
+   def bspline(self, time_knots, c, k):         # time_knots: knot vector, c: control points, k: degree
+      n = len(time_knots) - k - 1         
       assert (n >= k+1) and (len(c) >= n)
-      x = np.linspace(0, max(t), 100)
+      x = np.linspace(0, max(time_knots), 100)
+      # x = np.linspace(k, len(c), 100)
       trajec = np.zeros((len(x), len(c[0])))
       for m in range(len(x)):
          for n in range(len(c)):
-            trajec[m] += self.B(x[m], k, n, t) * c[n]
+            trajec[m] += self.B(x[m], k, n, time_knots) * c[n]
       trajec = np.delete(trajec, -1, axis=0)
+      print(len(trajec))
+      print(self.B(max(time_knots), k, 3, time_knots), c[1])
       return trajec
    
 class Bspline_basis():
    def bspline_basis(self, control_points, knots, degree=3):
+
       n = len(control_points) - 1
       m = len(knots) - 1
       assert (n + degree + 1) == m
       t = np.linspace(0, max(knots), 100)
+      # t = np.linspace(degree, len(control_points), 100)
+      # t = np.linspace(degree, len(control_points), 100)
+      
       trajec = np.zeros((len(t), len(control_points[0])))
       for k in range(len(t)):
          for i in range(n+1-degree):
             ii = i + degree
             # print(control_points[ii-degree:ii+1], knots[ii], knots[ii+1], t[m])
             trajec[k] += self.C(control_points[ii-degree:ii+1], ii, knots, t[k])[0]
+            # trajec[k] += self.C_new(control_points[ii-degree:ii+1], ii, knots, t[k])[0]
 
       trajec = np.delete(trajec, -1, axis=0)
       return trajec
+   
+   def C_new(self, cp, ii, knots, t):
+      floor_index = self.find_floor(knots, t)
+      ti = knots[floor_index]
+
+      if floor_index == len(knots) - 1:
+         ti_plus_1 = knots[floor_index]
+      else:
+         ti_plus_1 = knots[floor_index+1]
+
+      if t - ti == 0 and ti_plus_1 - ti == 0:
+         u_t = 0
+      else:
+         u_t = (t - ti) / (ti_plus_1 - ti)
+
+      UU = np.array([[1, u_t, u_t ** 2, u_t **3]])
+      M_BS_4 = np.array([[1, 4, 1, 0],
+                         [-3, 0, 3, 0],
+                         [3, -6, 3, 0],
+                         [-1, 3, -3, 1]])/6
+      C_t = UU @ M_BS_4 @ cp
+      print(C_t)
+      return C_t
+
+   def find_floor(self, array, value):
+      array = np.asarray(array)
+      idx = (np.abs(array - value)).argmin()
+      if array[idx] > value:
+         idx = idx - 1
+      return idx
 
    def C(self, cp, ii, knots, t):
       ti = knots[ii]
@@ -70,29 +113,28 @@ class Bspline_basis():
                            [m20, m21, m22, m23],
                            [m30, m31, m32, m33]])
 
+      if indicator == 1:
+         print(M_BS_4, indicator, t)
 
       A_3 = np.array([[-0.4302, 0.4568, -0.02698, 0.0004103],
                 [0.8349, -0.4568, -0.7921, 0.4996],
                 [-0.8349, -0.4568, 0.7921, 0.4996],
                 [0.4302, 0.4568, 0.02698, 0.0004103]])
       inverse_A_3 = np.linalg.inv(A_3)
-      M_BS_4 = np.array([[1, 4, 1, 0],
-                         [-3, 0, 3, 0],
-                         [3, -6, 3, 0],
-                         [-1, 3, -3, 1]])/6
+      
+      
+      
       
       u_t = (t - ti) / (ti_plus_1 - ti)
       UU = np.array([[1, u_t, u_t ** 2, u_t **3]])
+      
 
       rotated_M_BS_4 = list(zip(*M_BS_4[::-1]))
 
       C_t = UU @ M_BS_4 @ cp
-      print(C_t)
-      print(cp)
+      
+      # C_t = UU @ A_3 @ cp
 
-      # minvo_cp = cp.T @ rotated_M_BS_4 @ inverse_A_3
-      # print(minvo_cp)
-      # D_t = UU @ minvo_cp
       
       return C_t * indicator
    
@@ -105,12 +147,21 @@ def func_2d_test():           # 2D test
    # [ 57.,   2.],
    # [ 40.,   4.],
    # [ 40.,   14.]])
-   # cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7], [4, 3]])
-   cv = np.array([[0, 0], [0, 8], [5, 10], [9, 7]])
+   # cv = np.array([[1, 1], [0, 8], [5, 10], [9, 7], [4, 3]])
+   cv = np.array([[1, 1], [0, 8], [5, 10], [9, 7]])
+   # cv = np.array([[ 1.50035581e-11,  2.00000001e+00],
+   #                [ 1.02864764e+00, -1.79427048e+00],
+   #                [ 1.00000000e+01,  3.36148721e-15],
+   #                [ 4.65233065e+00, -1.06953388e+00]])
 
    k = 3
    t = np.array([0]*k + list(range(len(cv)-k+1)) + [len(cv)-k]*k,dtype='int')
+   # t2 = np.array([0., 0.14285714, 0.28571429, 0.42857143, 0.57142857, 0.71428571, 0.85714286, 1.])
+   t2 = np.array(list(range(len(cv)+k+1)))
+   # t2 = np.array([0, 1, 2, 3, 4, 5, 6, 7])
    print(t)
+
+   ### B-spline
    plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
    traj = Bspline()
    bspline_curve = traj.bspline(t, cv, k)
@@ -119,18 +170,17 @@ def func_2d_test():           # 2D test
    plt.plot(bspline_curve[:,0], bspline_curve[:,1], label='B-spline Curve')
    plt.legend(loc='upper left')
    plt.grid(axis='both')
-   # print(bspline_curve)
    plt.show()
 
+   ### B-spline basis
    plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
    traj_prime = Bspline_basis()
-   bspline_curve_prime = traj_prime.bspline_basis(cv, t, k)
+   bspline_curve_prime = traj_prime.bspline_basis(cv, t2, k)
    plt.xticks([ ii for ii in range(-20, 20)]), plt.yticks([ ii for ii in range(-20, 20)])
    plt.gca().set_aspect('equal', adjustable='box')
    plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
    plt.legend(loc='upper left')
    plt.grid(axis='both')
-   # print(bspline_curve_prime)
    plt.show()
 
 
