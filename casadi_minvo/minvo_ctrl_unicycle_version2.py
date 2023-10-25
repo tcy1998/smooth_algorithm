@@ -11,7 +11,7 @@ from B_spline import Bspline, Bspline_basis
 N = 20 # number of control intervals
 Epi = 500 # number of episodes
 
-gap = 3.0   # gap between upper and lower limit
+gap = 2.0   # gap between upper and lower limit
 initial_pos_sin_obs = gap/2   # initial position of sin obstacles
 
 tau = SX.sym("tau")    # time
@@ -126,7 +126,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     # ---- path constraints 1 -----------
     limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs
     limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + initial_pos_sin_obs - gap
-    # opti.subject_to(limit_lower(pos_x)<pos_y)
+    opti.subject_to(limit_lower(pos_x)<pos_y)
     opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
 
     # indicator_obs = 0

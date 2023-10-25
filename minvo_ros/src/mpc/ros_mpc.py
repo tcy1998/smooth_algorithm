@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+
 import numpy as np
 from casadi import *
 import tqdm
@@ -32,20 +35,22 @@ class mpc_ctrl:
 
         self.f = Function('f', [self.x, self.u],[xdot, ydot, thetadot])
         
-        self.v_limit = 10.0
+        self.v_limit = 5.0
         self.omega_limit = 0.1
         self.constraint_k = self.omega_limit/self.v_limit
 
-    def pose_callback(self, pose):
-        self.current_pose = [pose.position.x, pose.position.y, pose.position.z]
-        self.current_oriention = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+    def pose_callback(self, data):
+        # self.current_pose = [pose.position.x, pose.position.y, pose.position.z]
+        # print(self.current_pose, self.current_oriention)
+        self.current_pose = [data.pose.position.x, data.pose.position.y, data.pose.position.z]        
+        self.current_oriention = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
 
 
     def subsribe_pose(self):
         self.pose_sub = rospy.Subscriber('/current_pose', PoseStamped, self.pose_callback)
 
     def publish_ctrl(self):
-        self.ctrl_publisher = rospy.publisher("/mpc_cmd_vel", VehicleCmd, queue_size=10)
+        self.ctrl_publisher = rospy.Publisher("/mpc_cmd_vel", VehicleCmd, queue_size=10)
 
     def yaw_from_quaternion(self, x, y, z, w):
         t3 = + 2.0 * (w * z - z * x)
@@ -84,10 +89,10 @@ class mpc_ctrl:
             opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
     
         # ---- path constraints 1 -----------
-        limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
-        limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
-        opti.subject_to(limit_lower(pos_x)<=pos_y)
-        opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
+        # limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
+        # limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
+        # opti.subject_to(limit_lower(pos_x)<=pos_y)
+        # opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
 
         # ---- control constraints ----------
         v_limit_upper = self.v_limit
@@ -126,15 +131,22 @@ class mpc_ctrl:
 
         rospy.init_node('vehicle_vanilla_mpc')
 
-        loop_rate = rospy.Rate(1000)
-
+        loop_rate = rospy.Rate(10)
 
         self.subsribe_pose()
-        self.publisher()
+        self.publish_ctrl()
+        # rospy.spin()
+        rospy.sleep(1)
 
+        print(self.current_pose, self.current_oriention)
         mpc_cmd = VehicleCmd()
 
+        # # while self.current_pose == None:
+        # #     rospy.spin()
+        # print("jump out")
+
         for i in tqdm.tqdm(range(self.Epi)):
+            
             real_x, real_y = self.current_pose[0], self.current_pose[1]
             quat_x, quat_y, quat_z, quat_w = self.current_oriention[0], self.current_oriention[1],self.current_oriention[2], self.current_oriention[3]
             real_theta = self.yaw_from_quaternion(quat_x, quat_y, quat_z, quat_w)
@@ -150,7 +162,7 @@ class mpc_ctrl:
             theta_real_log.append(real_theta)
 
             mpc_cmd.ctrl_cmd.linear_velocity = U[0][0]
-            mpc_cmd.ctrl_cmd.steering_angle = theta
+            mpc_cmd.ctrl_cmd.steering_angle = theta - real_theta
             self.ctrl_publisher.publish(mpc_cmd)
 
 
@@ -166,17 +178,17 @@ class mpc_ctrl:
         ## Plot for sin obstacles
         plt.plot(x_log, y_log, 'r-')
         plt.plot(x_real_log, y_real_log, 'b-')
-        plt.plot(0,0,'bo')
-        plt.plot(-3, 1, 'go')
+        # plt.plot(0,0,'bo')
+        # plt.plot(-3, 1, 'go')
         plt.xlabel('pos_x')
         plt.ylabel('pos_y')
-        plt.axis([-4.0, 4.0, -4.0, 4.0])
+        # plt.axis([-4.0, 4.0, -4.0, 4.0])
 
-        x = np.arange(-4,4,0.01)
-        y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
-        plt.plot(x, y, 'g-', label='upper limit')
-        plt.plot(x, y-self.gap, 'b-', label='lower limit')
-        plt.show()
+        # x = np.arange(-4,4,0.01)
+        # y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
+        # plt.plot(x, y, 'g-', label='upper limit')
+        # plt.plot(x, y-self.gap, 'b-', label='lower limit')
+        # plt.show()
 
     
 if __name__ == "__main__":

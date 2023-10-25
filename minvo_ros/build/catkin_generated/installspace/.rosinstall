@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/gem/minvo_motion_planning/minvo_ros/install/setup.sh

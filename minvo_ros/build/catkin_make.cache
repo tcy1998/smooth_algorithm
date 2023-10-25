@@ -1,0 +1,2 @@
+mpc
+-DCATKIN_DEVEL_PREFIX=/home/gem/minvo_motion_planning/minvo_ros/devel -DCMAKE_INSTALL_PREFIX=/home/gem/minvo_motion_planning/minvo_ros/install -G Unix Makefiles
