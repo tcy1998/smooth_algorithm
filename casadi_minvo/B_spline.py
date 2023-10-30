@@ -113,8 +113,8 @@ class Bspline_basis():
                            [m20, m21, m22, m23],
                            [m30, m31, m32, m33]])
 
-      if indicator == 1:
-         print(M_BS_4, indicator, t)
+      # if indicator == 1:
+      #    print(M_BS_4, indicator, t)
 
       A_3 = np.array([[-0.4302, 0.4568, -0.02698, 0.0004103],
                 [0.8349, -0.4568, -0.7921, 0.4996],
@@ -175,10 +175,14 @@ def func_2d_test():           # 2D test
    ### B-spline basis
    plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
    traj_prime = Bspline_basis()
-   bspline_curve_prime = traj_prime.bspline_basis(cv, t2, k)
+   bspline_curve_prime = traj_prime.bspline_basis(cv, t, k)
    plt.xticks([ ii for ii in range(-20, 20)]), plt.yticks([ ii for ii in range(-20, 20)])
    plt.gca().set_aspect('equal', adjustable='box')
    plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
+   len_bspline_curve_prime = len(bspline_curve_prime)
+   half_len = int(len_bspline_curve_prime/2)
+   # plt.arrow(bspline_curve_prime[0,0], bspline_curve_prime[0,1], bspline_curve_prime[1,0]-bspline_curve_prime[0,0], bspline_curve_prime[1,1]-bspline_curve_prime[0,1], head_width=0.5, head_length=0.5, fc='k', ec='k')
+   plt.arrow(bspline_curve_prime[half_len,0], bspline_curve_prime[half_len,1], bspline_curve_prime[half_len+1,0]-bspline_curve_prime[half_len,0], bspline_curve_prime[half_len+1,1]-bspline_curve_prime[half_len,1], head_width=0.5, head_length=0.5, fc='k', ec='k')
    plt.legend(loc='upper left')
    plt.grid(axis='both')
    plt.show()

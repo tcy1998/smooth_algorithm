@@ -11,7 +11,7 @@ from B_spline import Bspline, Bspline_basis
 N = 20 # number of control intervals
 Epi = 500 # number of episodes
 
-gap = 4.0   # gap between upper and lower limit
+gap = 2.5   # gap between upper and lower limit
 initial_pos_sin_obs = gap/2   # initial position of sin obstacles
 
 tau = SX.sym("tau")    # time
@@ -20,24 +20,30 @@ x = SX.sym("x", 3)  # state
 tau_i = SX.sym("tau_i")   # time interval i
 tau_i1 = SX.sym("tau_i1")   # time interval i+1
 
-k32 = ((tau - tau_i)/(2*(tau_i - tau_i1)) + (tau - tau_i)**2/(2*(tau_i - tau_i1)**2) + (tau - tau_i)**3/(6*(tau_i - tau_i1)**3) + 1/6)
+k32 = (3*(tau - tau_i))/(tau_i - tau_i1) - (3*(tau - tau_i)**2)/(tau_i - tau_i1)**2 - (tau - tau_i)**3/(tau_i - tau_i1)**3 - 1
 k11 = np.cos(x[2])*k32
 k21 = np.sin(x[2])*k32
-k34 = 2/3 - (tau - tau_i)**3/(2*(tau_i - tau_i1)**3) - (tau - tau_i)**2/(tau_i - tau_i1)**2
+k34 = (6*(tau - tau_i))/(tau_i - tau_i1) + (3*(tau - tau_i)**2)/(tau_i - tau_i1)**2 + 3
 k13 = np.cos(x[2])*k34
 k23 = np.sin(x[2])*k34
-k36 = (tau - tau_i)**2/(2*(tau_i - tau_i1)**2) - (tau - tau_i)/(2*(tau_i - tau_i1)) + (tau - tau_i)**3/(2*(tau_i - tau_i1)**3) + 1/6
+k36 = - (3*(tau - tau_i))/(tau_i - tau_i1) - 3 
 k15 = np.cos(x[2])*k36
 k25 = np.sin(x[2])*k36
-k38 = -(tau - tau_i)**3/(6*(tau_i - tau_i1)**3)
+k38 = 1
 k17 = np.cos(x[2])*k38
 k27 = np.sin(x[2])*k38
+
 # K = np.array([[k11, 0, k13, 0, k15, 0, k17, 0],
 #                 [k21, 0, k23, 0, k25, 0, k27, 0],
 #                 [0, k32, 0, k34, 0, k36, 0, k38]])
+# vec U = [x1, x2, x3, x4, y1, y2, y3, y4]
 
  
 # ---- dynamic constraints --------
+# xdot = k11*u[0] + k13*u[1] + k15*u[2] + k17*u[3]
+# ydot = k21*u[0] + k23*u[1] + k25*u[2] + k27*u[3]
+# thetadot = k32*u[4] + k34*u[5] + k36*u[6] + k38*u[7]
+
 xdot = k11*u[0] + k13*u[2] + k15*u[4] + k17*u[6]
 ydot = k21*u[0] + k23*u[2] + k25*u[4] + k27*u[6]
 thetadot = k32*u[1] + k34*u[3] + k36*u[5] + k38*u[7]
@@ -71,6 +77,21 @@ def find_floor(array, value):
         idx = idx - 1
     return idx
 
+def find_ceil(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    if array[idx] < value:
+        idx = idx + 1
+    return idx
+
+def find_correct_index(array, value):
+    indicator = 0
+    index = 0
+    while indicator == 0:
+        indicator = 1 if array[index] <= value < array[index+1] else 0
+        index += 1
+    return index - 1
+
 def solver_mpc(x_init, y_init, theta_init, current_time):
 
     opti = Opti() # Optimization problem
@@ -96,6 +117,7 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     # time_knots = np.array([0]*poly_degree + list(range(num_ctrl_points-poly_degree+1)) + [num_ctrl_points-poly_degree]*poly_degree,dtype='int')
 
     # Uniform B spline time knots
+    t = np.array([0]*poly_degree + list(range(num_ctrl_points-poly_degree+1)) + [num_ctrl_points-poly_degree]*poly_degree,dtype='int')
     t2 = np.array(list(range(4+curve_degree+1)))*dt*N/(4+curve_degree)
     # Objective term
     State_xy = X[0:2, :]
@@ -107,10 +129,11 @@ def solver_mpc(x_init, y_init, theta_init, current_time):
     for k in range(N): # loop over control intervals
         # Runge-Kutta 4 integration
         # timei = current_time #+ (k-1)*dt
-        index_ = find_floor(t2, time_interval[k])
+        # index_ = find_floor(t, time_interval[k])
+        index_ = find_correct_index(t, time_interval[k])
         # print(time_interval[k], index_)
-        timei = t2[index_]
-        timei1 = t2[index_+1]
+        timei = t[index_]
+        timei1 = t[index_+1]
         k11, k12, k13 = f(X[:,k],         U[:], time_interval[k], timei, timei1)
         k21, k22, k23 = f(X[:,k]+dt/2*k11, U[:], time_interval[k], timei, timei1)
         k31, k32, k33 = f(X[:,k]+dt/2*k21, U[:], time_interval[k], timei, timei1)
@@ -241,12 +264,17 @@ for i in tqdm.tqdm(range(Epi)):
 
         ### Plot for B-spline basis
         # t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*dt/N
+        t = np.array([0]*poly_degree + list(range(num_ctrl_points-poly_degree+1)) + [num_ctrl_points-poly_degree]*poly_degree,dtype='int')
         t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*dt*N/(len(ctrl_points)+curve_degree)
-        print(t2)
+        # print(t2)
         plt.plot(ctrl_points[:,0],ctrl_points[:,1], 'o-', label='Control Points')
         traj_prime = Bspline_basis()
-        bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t2, curve_degree)
+        bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
         plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
+        plt.gca().set_aspect('equal', adjustable='box')
+        len_bspline_curve_prime = len(bspline_curve_prime)
+        half_len = int(len_bspline_curve_prime/2)
+        plt.arrow(bspline_curve_prime[half_len,0], bspline_curve_prime[half_len,1], bspline_curve_prime[half_len+1,0]-bspline_curve_prime[half_len,0], bspline_curve_prime[half_len+1,1]-bspline_curve_prime[half_len,1], head_width=0.1, head_length=0.3, fc='k', ec='k')
         plt.legend(loc='upper right')
         plt.show()
     if x_0 ** 2 + y_0 ** 2 < 0.01:
