@@ -224,7 +224,7 @@ curve_degree = 3
 control_pt_num = 4
 time_knots_num = control_pt_num + curve_degree + 1
 
-step_plotting = False
+step_plotting = True
 
 for i in tqdm.tqdm(range(Epi)):
 
@@ -288,7 +288,7 @@ plt.show()
 ## Plot for sin obstacles
 plt.plot(x_log, y_log, 'r-')
 plt.plot(0,0,'bo')
-plt.plot(-3, 1, 'go')
+plt.plot(-7, 1, 'go')
 plt.xlabel('pos_x')
 plt.ylabel('pos_y')
 # plt.axis([-4.0, 4.0, -4.0, 4.0])
