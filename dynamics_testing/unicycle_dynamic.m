@@ -8,3 +8,7 @@ G = [cos(theta) 0; sin(theta) 0; 0 1];
 K = kron(H.', G)
 
 KK = int(K, tau, t0, t)
+
+H = [1 0 0 0; -3 3 0 0; 3 -6 3 0; -1 3 -3 1]
+flip(H)
+H.'

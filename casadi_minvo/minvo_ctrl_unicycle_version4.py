@@ -4,6 +4,7 @@ import tqdm
 import math
 from B_spline import Bspline, Bspline_basis
 import matplotlib.pyplot as plt
+from unicycle_pd import UnicyclePDController
 
 class mpc_bspline_ctrl:
     def __init__(self):
@@ -33,7 +34,10 @@ class mpc_bspline_ctrl:
         self.k17 = np.cos(self.x[2])*self.k38
         self.k27 = np.sin(self.x[2])*self.k38
 
-
+        self.Kp = 0.5
+        self.Kd = 0.1
+        self.dt1 = 0.05
+        self.dt2 = 0.0025
         
         # ---- dynamic constraints --------
         # xdot = k11*u[0] + k13*u[1] + k15*u[2] + k17*u[3]
@@ -53,6 +57,9 @@ class mpc_bspline_ctrl:
 
         self.poly_degree = 3
         self.num_ctrl_points = 4
+
+        self.step_plotting = False
+        self.low_level_ctrl = False
 
         # def distance_circle_obs(self, x, y, circle_obstacles):
         #     return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
@@ -187,27 +194,102 @@ class mpc_bspline_ctrl:
         opti.debug.value(pos_x[1])
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
+    
+
+    def low_level_ctrl(self, ctrl_pts, theta, x, y, ctrls):
+        pd_controller = UnicyclePDController(self.Kp, self.Kd, self.dt1)
+
+        initial_x = x
+        initial_y = y
+        initial_theta = theta
+        initial_ctrls = ctrls
+
+        Log_x, Log_y = [initial_x], [initial_y]
+        Log_ctrls_v, Log_ctrls_w = [], []
+        Log_desire_ctrls_v, Log_desire_ctrls_w = [], []
+
+
+        for i in range(len(ctrl_pts)):
+            time_steps, positions, ctrls, desire_ctrl = pd_controller.simulate_unicycle(ctrl_pts[i], initial_ctrls, theta, x, y)
+            initial_x = positions[-1][0]
+            initial_y = positions[-1][1]
+            initial_theta = math.atan2(positions[-1][1], positions[-1][0])
+            initial_ctrls = ctrls[-1]
+            Log_x.extend(np.array(positions).T[0])
+            Log_y.extend(np.array(positions).T[1])
+            Log_ctrls_v.extend(np.array(ctrls)[:,0])
+            Log_ctrls_w.extend(np.array(ctrls)[:,1])
+            Log_desire_ctrls_v.extend(np.array(desire_ctrl)[:,0])
+            Log_desire_ctrls_w.extend(np.array(desire_ctrl)[:,1])
+
+        if self.step_plotting == True:
+            # Plotting the results
+                # Plotting the results
+            plt.figure(figsize=(8, 6))
+            print(len(Log_x), len(Log_y))   
+            plt.plot(Log_x, Log_y, label='Unicycle Path')
+            plt.xlabel('X')
+            plt.ylabel('Y')
+            plt.title('Unicycle Path Controlled by Time-Changing Velocities with PD Controller')
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+
+            time_plotting = np.arange(0, len(ctrl_pts)*self.dt1, self.dt2)
+            plt.figure(figsize=(8, 6))
+            plt.plot(time_plotting, Log_ctrls_v, label='Control Signals_v')
+            plt.plot(time_plotting, Log_ctrls_w, label='Control Signals_w')
+            plt.plot(time_plotting, Log_desire_ctrls_v, label='Desired Control Signals_v', linestyle='--')
+            plt.plot(time_plotting, Log_desire_ctrls_w, label='Desired Control Signals_w', linestyle='--')
+            print(ctrls)
+            plt.xlabel('Time Steps')
+            plt.ylabel('Values')
+            plt.legend()
+            plt.title('Control Signals')
+            plt.grid(True)
+            plt.show()
+        
+        return initial_x, initial_y, initial_theta
+
 
     # ---- post-processing        ------
 
     def main(self):
         ### One time testing
         x_0, y_0, theta = -7, 1, np.pi*-0.3
+        x_real, y_real, theta_real = -7, 1, np.pi*-0.3
 
         x_log, y_log = [x_0], [y_0]
         theta_log = [theta]
+
+        x_real_log, y_real_log = [x_real], [y_real]
+        theta_real_log = [theta_real]
+
         curve_degree = 3
         control_pt_num = 4
         time_knots_num = control_pt_num + curve_degree + 1
-        step_plotting = False
+
+        U_last = np.array([0, 0])
+        
 
         for i in tqdm.tqdm(range(self.Epi)):
 
-            x_0, y_0, theta, U, X = self.solver_mpc(x_0, y_0, theta, i*self.dt)
+            x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real, i*self.dt)
+
+            if self.low_level_ctrl == False:
+                x_real, y_real, theta_real = x_0, y_0, theta
+            else:
+                ctrl_point_1 = [U[0], U[4]]
+                ctrl_point_2 = [U[1], U[5]]
+                ctrl_point_3 = [U[2], U[6]]
+                ctrl_point_4 = [U[3], U[7]]
+                ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
+                x_real, y_real, theta_real = self.low_level_ctrl(ctrl_points, theta, x_real, y_real, U)
+
             x_log.append(x_0)
             y_log.append(y_0)
             theta_log.append(theta)
-            if step_plotting == True:
+            if self.step_plotting == True:
                 plt.plot(X[0,:], X[1,:], 'r-')
                 plt.plot(x_0, y_0, 'bo')
                 plt.plot(X[0,0], X[1,0], 'go')
@@ -271,14 +353,14 @@ class mpc_ctrl:
         self.Epi = 500 # number of episodes
         
 
-        self.gap = 4.5   # gap between upper and lower limit
+        self.gap = 2.5   # gap between upper and lower limit
         self.initial_pos_sin_obs = self.gap/2   # initial position of sin obstacles
 
         
         self.u = SX.sym("u", 2)    # control
         self.x = SX.sym("x", 3)  # state
 
-
+        self.low_level_ctrl = False
 
         xdot = np.cos(self.x[2])*self.u[0]
         ydot = np.sin(self.x[2])*self.u[0]
@@ -326,12 +408,19 @@ class mpc_ctrl:
         opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
 
         # ---- control constraints ----------
-        v_limit_upper = self.v_limit
-        v_limit_lower = -self.v_limit
-        omega_limit_upper = self.omega_limit
-        omega_limit_lower = -self.omega_limit
-        opti.subject_to(opti.bounded(v_limit_lower, U[0, :], v_limit_upper))
-        opti.subject_to(opti.bounded(omega_limit_lower, U[1, :], omega_limit_upper))
+        v_limit = 5.0
+        omega_limit = 3.0
+        constraint_k = omega_limit/v_limit
+
+        ctrl_constraint_leftupper = lambda ctrl: constraint_k*ctrl + omega_limit
+        ctrl_constraint_rightlower = lambda ctrl: constraint_k*ctrl - omega_limit
+        ctrl_constraint_leftlower = lambda ctrl: -constraint_k*ctrl - omega_limit
+        ctrl_constraint_rightupper = lambda ctrl: -constraint_k*ctrl + omega_limit
+        opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
+        opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
+        opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
+        opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
+
 
         
         # ---- boundary conditions --------
@@ -362,6 +451,12 @@ class mpc_ctrl:
         for i in tqdm.tqdm(range(self.Epi)):
             
             x_0, y_0, theta, U, X = self.solver_mpc(x_0, y_0, theta)
+
+            # if self.low_level_ctrl == False:
+            #     x_real, y_real, theta_real = x_0, y_0, theta
+            # else:
+            #     ctrl = U
+            #     x_real, y_real, theta_real = self.low_level_ctrl(ctrl, theta, x_real, y_real, U)
             x_log.append(x_0)
             y_log.append(y_0)
             theta_log.append(theta)

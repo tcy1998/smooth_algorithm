@@ -65,7 +65,7 @@ class UnicyclePDController:
 if __name__ == "__main__":
     Kp = 0.5
     Kd = 0.1
-    dt1 = 0.1
+    dt1 = 0.05
     dt2 = 0.0025
     pd_controller = UnicyclePDController(Kp, Kd, dt1)
 
