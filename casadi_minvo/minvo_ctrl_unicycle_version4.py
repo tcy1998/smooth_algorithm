@@ -353,7 +353,7 @@ class mpc_ctrl:
         self.Epi = 500 # number of episodes
         
 
-        self.gap = 2.5   # gap between upper and lower limit
+        self.gap = 4.5   # gap between upper and lower limit
         self.initial_pos_sin_obs = self.gap/2   # initial position of sin obstacles
 
         
