@@ -93,7 +93,7 @@ class mpc_ctrl:
 
         # ---- control constraints ----------
         v_limit = 5.0
-        omega_limit = 3.0
+        omega_limit = 0.2
         constraint_k = omega_limit/v_limit
 
         ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
@@ -114,10 +114,10 @@ class mpc_ctrl:
 
 
         # ---- solve NLP              ------
-        # opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
         
-        # opti.solver("ipopt", opts) # set numerical backend
-        opti.solver("ipopt") # set numerical backend
+        opti.solver("ipopt", opts) # set numerical backend
+        # opti.solver("ipopt") # set numerical backend
         
 
         sol = opti.solve()   # actual solve
@@ -181,8 +181,10 @@ class mpc_ctrl:
         return initial_x, initial_y, initial_theta, ctrls[-1]
 
     def main(self):
-        x_0, y_0, theta = -7, 1, np.pi*-0.3
-        x_real, y_real, theta_real = -7, 1, np.pi*-0.3
+        start_x = -4
+        start_y = 0
+        x_0, y_0, theta = start_x, start_y, np.pi*-0.3
+        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.3
         U_real = np.array([0.0, 0.0])
 
         x_log, y_log = [x_0], [y_0]
@@ -248,10 +250,10 @@ class mpc_ctrl:
         plt.plot(x_log, y_log, 'r-', label='desired path')
         plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
         plt.plot(0,0,'bo')
-        plt.plot(-7, 1, 'go')
+        plt.plot(start_x, start_y, 'go')
         plt.xlabel('pos_x')
         plt.ylabel('pos_y')
-        x = np.arange(-7,4,0.01)
+        x = np.arange(start_x-1,4,0.01)
         y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
         plt.plot(x, y, 'g-', label='upper limit')
         plt.plot(x, y-self.gap, 'b-', label='lower limit')

@@ -87,7 +87,7 @@ class mpc_bspline_ctrl:
             index += 1
         return index - 1
 
-    def solver_mpc(self, x_init, y_init, theta_init, current_time):
+    def solver_mpc(self, x_init, y_init, theta_init):
 
         opti = Opti() # Optimization problem
         time_interval = np.arange(0, self.N) *self.dt #+ current_time # time interval
@@ -187,10 +187,10 @@ class mpc_bspline_ctrl:
 
 
         # ---- solve NLP              ------
-        # opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
         
-        # opti.solver("ipopt", opts) # set numerical backend
-        opti.solver("ipopt") # set numerical backend
+        opti.solver("ipopt", opts) # set numerical backend
+        # opti.solver("ipopt") # set numerical backend
         sol = opti.solve()   # actual solve
         opti.debug.value(U)
 
@@ -263,7 +263,7 @@ class mpc_bspline_ctrl:
 
         for i in tqdm.tqdm(range(self.Epi)):
 
-            x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real, i*self.dt)
+            x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
 
             if self.use_low_level_ctrl == False:
                 x_real, y_real, theta_real = x_0, y_0, theta
@@ -279,7 +279,7 @@ class mpc_bspline_ctrl:
                 bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
                 print("bspline_curve_prime", len(bspline_curve_prime))
                 x_real, y_real, theta_real, U_last = self.low_level_ctrl(bspline_curve_prime[0:5], theta, x_0, y_0, U_last)
-            print("real_pos", x_real, y_real)
+            # print("real_pos", x_real, y_real)
 
             x_log.append(x_0)
             y_log.append(y_0)
