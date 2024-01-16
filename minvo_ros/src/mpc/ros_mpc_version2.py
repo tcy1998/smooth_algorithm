@@ -6,12 +6,26 @@ from casadi import *
 import tqdm
 import rospy
 from geometry_msgs.msg import PoseStamped
+
+#for simulation
+from gazebo_msgs.msg import ModelStates
+from gazebo_msgs.srv import GetModelState
+
 from autoware_msgs.msg import VehicleCmd
-import matplotlib.pyplot as plt
+
+import matplotlib
+matplotlib.use('TkAgg')
+from matplotlib import pyplot as plt
+
+# import matplotlib.pyplot as plt
+
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 
 import math
 
+global simulation
+simulation = 1 # 0 is off, 1 is on
 
 class mpc_ctrl:
     def __init__(self):
@@ -41,14 +55,30 @@ class mpc_ctrl:
         self.constraint_k = self.omega_limit/self.v_limit
 
     def pose_callback(self, data):
+        global simulation
         # self.current_pose = [pose.position.x, pose.position.y, pose.position.z]
         # print(self.current_pose, self.current_oriention)
-        self.current_pose = [data.pose.position.x, data.pose.position.y, data.pose.position.z]        
-        self.current_oriention = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
-
+        if simulation == 0:
+            self.current_pose = [data.pose.position.x, data.pose.position.y, data.pose.position.z]        
+            self.current_oriention = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
+        elif simulation == 1:
+            # rospy.wait_for_service('/gazebo/get_model_state')
+            # service_response = rospy.ServiceProxy('/gazebo/get_model_states', GetModelStates)
+            # data = service_response(model_name='gem')
+            data = data.pose[7]
+            self.current_pose = [data.position.x, data.position.y, data.position.z]        
+            self.current_oriention = [data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w]
 
     def subsribe_pose(self):
-        self.pose_sub = rospy.Subscriber('/current_pose', PoseStamped, self.pose_callback)
+        global simulation
+        if simulation == 0:
+            print("Using real car")
+            self.pose_sub = rospy.Subscriber('/current_pose', PoseStamped, self.pose_callback)
+        elif simulation == 1:
+            print("Using simulation")
+            self.pose_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.pose_callback)
+            # self.pose_sub = rospy.Subscriber('/gazebo/get_model_states', GetModelStates, self.pose_callback)
+
 
     def publish_ctrl(self):
         self.ctrl_publisher = rospy.Publisher("/mpc_cmd_vel", VehicleCmd, queue_size=10)
@@ -61,7 +91,7 @@ class mpc_ctrl:
         return yaw_z
 
 
-    def solver_mpc(self, x_init, y_init, theta_init, phi_init):
+    def solver_mpc(self, x_init, y_init, theta_init, phi_init, x_target, y_target):
         # ---- decision variables ---------
         opti = Opti() # Optimization problem
         X = opti.variable(4, self.N+1) # state trajectory
@@ -73,7 +103,8 @@ class mpc_ctrl:
         U = opti.variable(2, self.N+1)   # control points (2*1)
 
         State_xy = X[0:2, :]
-        L = 100*sumsqr(State_xy) + sumsqr(U) # sum of QP terms
+        target_xy = [x_target, y_target]
+        L = 100*sumsqr(State_xy - target_xy) + sumsqr(U) # sum of QP terms
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -152,12 +183,17 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
+        x_target, y_target = 10.0, -3.0
+
         for i in tqdm.tqdm(range(self.Epi)):
             
             real_x, real_y = self.current_pose[0], self.current_pose[1]
             quat_x, quat_y, quat_z, quat_w = self.current_oriention[0], self.current_oriention[1],self.current_oriention[2], self.current_oriention[3]
-            real_theta = -self.yaw_from_quaternion(quat_x, quat_y, quat_z, quat_w) + arctan2(real_y, real_x)
-            x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi)
+            # real_theta = -self.yaw_from_quaternion(quat_x, quat_y, quat_z, quat_w) + arctan2(real_y, real_x)
+            (roll, pitch, real_theta) = euler_from_quaternion([quat_x, quat_y, quat_z, quat_w])
+
+
+            x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi, x_target, y_target)
             # theta = theta_change(theta)
             x_log.append(x_0)
             y_log.append(y_0)
@@ -171,11 +207,15 @@ class mpc_ctrl:
 
             mpc_cmd.ctrl_cmd.linear_velocity = U[0][0]
             mpc_cmd.ctrl_cmd.steering_angle = np.rad2deg(phi)
+            # mpc_cmd.ctrl_cmd.linear_velocity = 1
+            # mpc_cmd.ctrl_cmd.steering_angle = 1
             self.ctrl_publisher.publish(mpc_cmd)
 
 
 
-            if x_0 ** 2 + y_0 ** 2 < 0.01:
+            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < 0.5:
+                mpc_cmd.ctrl_cmd.linear_velocity = 0
+                self.ctrl_publisher.publish(mpc_cmd)
                 break
 
         t = np.arange(0, (len(x_log))*self.dt, self.dt)
@@ -183,8 +223,8 @@ class mpc_ctrl:
         plt.plot(t, theta_real_log, 'b-')
         plt.show()
 
-        plt.plot(t, phi_log)
-        plt.show()
+        # plt.plot(t, phi_log)
+        # plt.show()
 
         ## Plot for sin obstacles
         plt.plot(x_log, y_log, 'r-')
@@ -200,6 +240,8 @@ class mpc_ctrl:
         # plt.plot(x, y, 'g-', label='upper limit')
         # plt.plot(x, y-self.gap, 'b-', label='lower limit')
         plt.show()
+
+        # sys.exit()
 
     
 if __name__ == "__main__":
