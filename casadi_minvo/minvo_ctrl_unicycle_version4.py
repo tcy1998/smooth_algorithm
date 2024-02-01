@@ -59,7 +59,7 @@ class mpc_bspline_ctrl:
         self.num_ctrl_points = 4
 
         self.step_plotting = False
-        self.low_level_ctrl = False
+        self.use_low_level_ctrl = False
 
         # def distance_circle_obs(self, x, y, circle_obstacles):
         #     return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
@@ -87,7 +87,7 @@ class mpc_bspline_ctrl:
             index += 1
         return index - 1
 
-    def solver_mpc(self, x_init, y_init, theta_init, current_time):
+    def solver_mpc(self, x_init, y_init, theta_init):
 
         opti = Opti() # Optimization problem
         time_interval = np.arange(0, self.N) *self.dt #+ current_time # time interval
@@ -109,7 +109,9 @@ class mpc_bspline_ctrl:
         # Uniform B spline time knots
         t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
         # Objective term
-        State_xy = X[0:2, :]
+        State_xy = X[0:2, :] #- [1,1]
+        V = U[0, :]
+        # L = 10*sumsqr(State_xy) + sumsqr(V) 
         L = 100*sumsqr(State_xy) + sumsqr(U) # sum of QP terms
 
         # ---- objective          ---------
@@ -189,14 +191,13 @@ class mpc_bspline_ctrl:
         
         opti.solver("ipopt", opts) # set numerical backend
         # opti.solver("ipopt") # set numerical backend
-
         sol = opti.solve()   # actual solve
-        opti.debug.value(pos_x[1])
+        opti.debug.value(U)
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
     
 
-    def low_level_ctrl(self, ctrl_pts, theta, x, y, ctrls):
+    def low_level_ctrl(self, ctrl_ref, theta, x, y, ctrls):
         pd_controller = UnicyclePDController(self.Kp, self.Kd, self.dt1)
 
         initial_x = x
@@ -209,11 +210,11 @@ class mpc_bspline_ctrl:
         Log_desire_ctrls_v, Log_desire_ctrls_w = [], []
 
 
-        for i in range(len(ctrl_pts)):
-            time_steps, positions, ctrls, desire_ctrl = pd_controller.simulate_unicycle(ctrl_pts[i], initial_ctrls, theta, x, y)
+        for i in range(len(ctrl_ref)):
+            time_steps, positions, ctrls, desire_ctrl = pd_controller.simulate_unicycle(ctrl_ref[i], initial_ctrls, theta, x, y)
             initial_x = positions[-1][0]
             initial_y = positions[-1][1]
-            initial_theta = math.atan2(positions[-1][1], positions[-1][0])
+            initial_theta = positions[-1][2]
             initial_ctrls = ctrls[-1]
             Log_x.extend(np.array(positions).T[0])
             Log_y.extend(np.array(positions).T[1])
@@ -223,25 +224,13 @@ class mpc_bspline_ctrl:
             Log_desire_ctrls_w.extend(np.array(desire_ctrl)[:,1])
 
         if self.step_plotting == True:
-            # Plotting the results
-                # Plotting the results
-            plt.figure(figsize=(8, 6))
-            print(len(Log_x), len(Log_y))   
-            plt.plot(Log_x, Log_y, label='Unicycle Path')
-            plt.xlabel('X')
-            plt.ylabel('Y')
-            plt.title('Unicycle Path Controlled by Time-Changing Velocities with PD Controller')
-            plt.legend()
-            plt.grid(True)
-            plt.show()
 
-            time_plotting = np.arange(0, len(ctrl_pts)*self.dt1, self.dt2)
+            time_plotting = np.arange(0, len(ctrl_ref)*self.dt1, self.dt2)
             plt.figure(figsize=(8, 6))
             plt.plot(time_plotting, Log_ctrls_v, label='Control Signals_v')
             plt.plot(time_plotting, Log_ctrls_w, label='Control Signals_w')
             plt.plot(time_plotting, Log_desire_ctrls_v, label='Desired Control Signals_v', linestyle='--')
             plt.plot(time_plotting, Log_desire_ctrls_w, label='Desired Control Signals_w', linestyle='--')
-            print(ctrls)
             plt.xlabel('Time Steps')
             plt.ylabel('Values')
             plt.legend()
@@ -249,7 +238,7 @@ class mpc_bspline_ctrl:
             plt.grid(True)
             plt.show()
         
-        return initial_x, initial_y, initial_theta
+        return initial_x, initial_y, initial_theta, initial_ctrls
 
 
     # ---- post-processing        ------
@@ -274,9 +263,9 @@ class mpc_bspline_ctrl:
 
         for i in tqdm.tqdm(range(self.Epi)):
 
-            x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real, i*self.dt)
+            x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
 
-            if self.low_level_ctrl == False:
+            if self.use_low_level_ctrl == False:
                 x_real, y_real, theta_real = x_0, y_0, theta
             else:
                 ctrl_point_1 = [U[0], U[4]]
@@ -284,7 +273,13 @@ class mpc_bspline_ctrl:
                 ctrl_point_3 = [U[2], U[6]]
                 ctrl_point_4 = [U[3], U[7]]
                 ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
-                x_real, y_real, theta_real = self.low_level_ctrl(ctrl_points, theta, x_real, y_real, U)
+
+                t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
+                traj_prime = Bspline_basis()
+                bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
+                print("bspline_curve_prime", len(bspline_curve_prime))
+                x_real, y_real, theta_real, U_last = self.low_level_ctrl(bspline_curve_prime[0:5], theta, x_0, y_0, U_last)
+            # print("real_pos", x_real, y_real)
 
             x_log.append(x_0)
             y_log.append(y_0)
@@ -326,6 +321,10 @@ class mpc_bspline_ctrl:
                 plt.show()
             if x_0 ** 2 + y_0 ** 2 < 0.01:
                 break
+        
+        ## Plot for control signals
+        tt = np.arange(0, (len(x_log))*self.dt, self.dt)
+
 
         ## Plot for theta
         t = np.arange(0, len(x_log), 1)
@@ -346,157 +345,13 @@ class mpc_bspline_ctrl:
         plt.plot(x, y-self.gap, 'b-', label='lower limit')
         plt.show()
 
-class mpc_ctrl:
-    def __init__(self):
-        self.dt = 0.05 # time frequency 20Hz
-        self.N = 20 # number of control intervals
-        self.Epi = 500 # number of episodes
-        
-
-        self.gap = 4.5   # gap between upper and lower limit
-        self.initial_pos_sin_obs = self.gap/2   # initial position of sin obstacles
-
-        
-        self.u = SX.sym("u", 2)    # control
-        self.x = SX.sym("x", 3)  # state
-
-        self.low_level_ctrl = False
-
-        xdot = np.cos(self.x[2])*self.u[0]
-        ydot = np.sin(self.x[2])*self.u[0]
-        thetadot = self.u[1]
-
-        self.f = Function('f', [self.x, self.u],[xdot, ydot, thetadot])
-        
-        self.v_limit = 5.0
-        self.omega_limit = 3.0
-        self.constraint_k = self.omega_limit/self.v_limit
-
-    def solver_mpc(self, x_init, y_init, theta_init):
-        # ---- decision variables ---------
-        opti = Opti() # Optimization problem
-        X = opti.variable(3, self.N+1) # state trajectory
-        pos_x = X[0,:]
-        pos_y = X[1,:]
-        theta = X[2,:]
-
-        U = opti.variable(2, self.N+1)   # control points (2*1)
-
-        State_xy = X[0:2, :]
-        L = sumsqr(State_xy) + sumsqr(U) # sum of QP terms
-
-        # ---- objective          ---------
-        opti.minimize(L) # race in minimal time 
-
-        for k in range(self.N): # loop over control intervals
-            # Runge-Kutta 4 integration
-            k11, k12, k13 = self.f(X[:,k],         U[:,k])
-            k21, k22, k23 = self.f(X[:,k]+self.dt/2*k11, U[:,k])
-            k31, k32, k33 = self.f(X[:,k]+self.dt/2*k21, U[:,k])
-            k41, k42, k43 = self.f(X[:,k]+self.dt*k31,   U[:,k])
-            x_next = X[0,k] + self.dt/6*(k11+2*k21+2*k31+k41)
-            y_next = X[1,k] + self.dt/6*(k12+2*k22+2*k32+k42)
-            theta_next = X[2,k] + self.dt/6*(k13+2*k23+2*k33+k43)
-            opti.subject_to(X[0,k+1]==x_next)
-            opti.subject_to(X[1,k+1]==y_next)
-            opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
-    
-        # ---- path constraints 1 -----------
-        limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
-        limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
-        opti.subject_to(limit_lower(pos_x)<=pos_y)
-        opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
-
-        # ---- control constraints ----------
-        v_limit = 5.0
-        omega_limit = 3.0
-        constraint_k = omega_limit/v_limit
-
-        ctrl_constraint_leftupper = lambda ctrl: constraint_k*ctrl + omega_limit
-        ctrl_constraint_rightlower = lambda ctrl: constraint_k*ctrl - omega_limit
-        ctrl_constraint_leftlower = lambda ctrl: -constraint_k*ctrl - omega_limit
-        ctrl_constraint_rightupper = lambda ctrl: -constraint_k*ctrl + omega_limit
-        opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
-        opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
-        opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
-        opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
-
-
-        
-        # ---- boundary conditions --------
-        opti.subject_to(pos_x[0]==x_init)
-        opti.subject_to(pos_y[0]==y_init)   
-        opti.subject_to(theta[0]==theta_init)
-
-
-        # ---- solve NLP              ------
-        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
-        
-        opti.solver("ipopt", opts) # set numerical backend
-        # opti.solver("ipopt") # set numerical backend
-        
-
-        sol = opti.solve()   # actual solve
-
-
-        return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
-
-    def main(self):
-        x_0, y_0, theta = -7, 1, np.pi*-0.3
-
-        x_log, y_log = [x_0], [y_0]
-        theta_log = [theta]
-        U_log = []
-
-        for i in tqdm.tqdm(range(self.Epi)):
-            
-            x_0, y_0, theta, U, X = self.solver_mpc(x_0, y_0, theta)
-
-            # if self.low_level_ctrl == False:
-            #     x_real, y_real, theta_real = x_0, y_0, theta
-            # else:
-            #     ctrl = U
-            #     x_real, y_real, theta_real = self.low_level_ctrl(ctrl, theta, x_real, y_real, U)
-            x_log.append(x_0)
-            y_log.append(y_0)
-            theta_log.append(theta)
-            # theta = theta_change(theta)
-            x_log.append(x_0)
-            y_log.append(y_0)
-            theta_log.append(theta)
-            U_log.append(U)
-
-            if x_0 ** 2 + y_0 ** 2 < 0.01:
-                break
-
-        t = np.arange(0, (len(x_log))*self.dt, self.dt)
-        plt.plot(t, theta_log, 'r-')
-        plt.show()
-
-        ## Plot for sin obstacles
-        plt.plot(x_log, y_log, 'r-')
-        plt.plot(0,0,'bo')
-        plt.plot(-7, 1, 'go')
-        plt.xlabel('pos_x')
-        plt.ylabel('pos_y')
-        x = np.arange(-7,4,0.01)
-        y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
-        plt.plot(x, y, 'g-', label='upper limit')
-        plt.plot(x, y-self.gap, 'b-', label='lower limit')
-        plt.show()
-
 
 if __name__ == "__main__":
-    try:
-        mpc = mpc_ctrl()
-        mpc.main()
-    except RuntimeError:
-        print("RuntimeError")
-    try:
-        mpc_bspline = mpc_bspline_ctrl()
-        mpc_bspline.main()
-    except RuntimeError:
-        print("RuntimeError")
+    # try:
+    mpc_bspline = mpc_bspline_ctrl()
+    mpc_bspline.main()
+    # except RuntimeError:
+    #     print("RuntimeError")
 
 ### Plot for circle obstacles
 # target_circle1 = plt.Circle((circle_obstacles_1['x'], circle_obstacles_1['y']), circle_obstacles_1['r'], color='b', fill=False)

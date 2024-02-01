@@ -33,7 +33,7 @@ class UnicyclePDController:
         step_number = self.dt1/self.dt2
         for i in range(int(step_number)):
             time_steps.append(len(time_steps))
-            positions.append((x, y))
+            positions.append((x, y, theta))
 
             # Calculate control signals for linear velocity and angular velocity
             linear_velocity_setpoint, angular_velocity_setpoint = control_signals[0], control_signals[1]
@@ -47,18 +47,18 @@ class UnicyclePDController:
             real_ctrls.append([linear_velocity, angular_velocity])
             desired_ctrls.append([linear_velocity_setpoint, angular_velocity_setpoint])
 
-        if self.step_plot:
-            plot_time = np.arange(0, self.dt1, self.dt2)
-            plt.plot(plot_time, np.array(real_ctrls)[:, 0])
-            plt.plot(plot_time, np.array(real_ctrls)[:, 1])
-            plt.plot(plot_time, np.array(desired_ctrls)[:, 0], linestyle='--')
-            plt.plot(plot_time, np.array(desired_ctrls)[:, 1], linestyle='--')
-            plt.show()
+        # if self.step_plot:
+        #     plot_time = np.arange(0, self.dt1, self.dt2)
+        #     plt.plot(plot_time, np.array(real_ctrls)[:, 0])
+        #     plt.plot(plot_time, np.array(real_ctrls)[:, 1])
+        #     plt.plot(plot_time, np.array(desired_ctrls)[:, 0], linestyle='--')
+        #     plt.plot(plot_time, np.array(desired_ctrls)[:, 1], linestyle='--')
+        #     plt.show()
 
-            plt.plot(positions[0][0], positions[0][1], 'ro')
-            plt.plot(positions[-1][0], positions[-1][1], 'bo')
-            plt.plot(np.array(positions).T[0], np.array(positions).T[1])
-            plt.show()
+        #     plt.plot(positions[0][0], positions[0][1], 'ro')
+        #     plt.plot(positions[-1][0], positions[-1][1], 'bo')
+        #     plt.plot(np.array(positions).T[0], np.array(positions).T[1])
+        #     plt.show()
 
         return time_steps, positions, real_ctrls, desired_ctrls
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     plt.plot(time_plotting, Log_ctrls_w, label='Control Signals_w')
     plt.plot(time_plotting, Log_desire_ctrls_v, label='Desired Control Signals_v', linestyle='--')
     plt.plot(time_plotting, Log_desire_ctrls_w, label='Desired Control Signals_w', linestyle='--')
-    print(ctrls)
+    # print(ctrls)
     plt.xlabel('Time Steps')
     plt.ylabel('Values')
     plt.legend()
