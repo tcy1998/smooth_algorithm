@@ -36,7 +36,7 @@ class mpc_ctrl:
         self.dt = 0.1 # time frequency 10Hz
 
         self.initial_pos_sin_obs = 1
-        self.gap = 2   # gap between upper and lower limit
+        self.gap = 4   # gap between upper and lower limit
         
         self.u = SX.sym("u", 2)    # control
         self.x = SX.sym("x", 4)  # state
@@ -51,7 +51,7 @@ class mpc_ctrl:
         self.f = Function('f', [self.x, self.u],[xdot, ydot, thetadot, phidot])
         
         self.v_limit = 1.5
-        self.omega_limit = 1.5
+        self.omega_limit = 0.5
         self.constraint_k = self.omega_limit/self.v_limit
 
     def pose_callback(self, data):
@@ -65,7 +65,9 @@ class mpc_ctrl:
             # rospy.wait_for_service('/gazebo/get_model_state')
             # service_response = rospy.ServiceProxy('/gazebo/get_model_states', GetModelStates)
             # data = service_response(model_name='gem')
-            data = data.pose[7]
+            # data = data.pose[7] #simulation evnvironment 1
+            data = data.pose[-1] #simulation evnvironment highbay
+
             self.current_pose = [data.position.x, data.position.y, data.position.z]        
             self.current_oriention = [data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w]
 
@@ -104,7 +106,7 @@ class mpc_ctrl:
 
         State_xy = X[0:2, :]
         target_xy = [x_target, y_target]
-        L = 100*sumsqr(State_xy - target_xy) + sumsqr(U) # sum of QP terms
+        L = 10*sumsqr(State_xy - target_xy) + sumsqr(U) # sum of QP terms
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -128,7 +130,9 @@ class mpc_ctrl:
         # limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
         # limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
         # opti.subject_to(limit_lower(pos_x)<=pos_y)
-        # opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
+        # opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
+        # opti.subject_to((pos_y)<=-20)
+        # opti.subject_to((pos_y)>-23)
 
         # ---- control constraints ----------
         v_limit_upper = self.v_limit
@@ -183,7 +187,7 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
-        x_target, y_target = 10.0, -3.0
+        x_target, y_target = -15, -21
 
         for i in tqdm.tqdm(range(self.Epi)):
             
@@ -192,7 +196,7 @@ class mpc_ctrl:
             # real_theta = -self.yaw_from_quaternion(quat_x, quat_y, quat_z, quat_w) + arctan2(real_y, real_x)
             (roll, pitch, real_theta) = euler_from_quaternion([quat_x, quat_y, quat_z, quat_w])
 
-
+            print(real_x, real_y)
             x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi, x_target, y_target)
             # theta = theta_change(theta)
             x_log.append(x_0)
@@ -219,8 +223,14 @@ class mpc_ctrl:
                 break
 
         t = np.arange(0, (len(x_log))*self.dt, self.dt)
-        plt.plot(t, theta_log, 'r-')
-        plt.plot(t, theta_real_log, 'b-')
+        plt.plot(t, theta_log, 'r-', label='theta')
+        plt.plot(t, theta_real_log, 'b-', label='desired_theta')
+        plt.legend()
+        plt.show()
+
+        tt = np.arange(0, (len(phi_log))*self.dt, self.dt)
+        plt.plot(t, phi_log, 'r-', label='phi')
+        plt.legend()
         plt.show()
 
         # plt.plot(t, phi_log)
