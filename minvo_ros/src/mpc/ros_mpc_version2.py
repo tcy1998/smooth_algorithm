@@ -40,15 +40,23 @@ class mpc_ctrl:
         
         self.u = SX.sym("u", 2)    # control
         self.x = SX.sym("x", 4)  # state
+        self.x_next_state = SX.sym("x_next", 4)
 
         self.L = 1.75
 
-        xdot = np.cos(self.x[2])*self.u[0]
-        ydot = np.sin(self.x[2])*self.u[0]
-        thetadot = np.tan(self.x[3])/self.L*self.u[0]
-        phidot = self.u[1]
+        # xdot = np.cos(self.x[2])*self.u[0]
+        # ydot = np.sin(self.x[2])*self.u[0]
+        # thetadot = (np.tan(self.x[3])/self.L)*self.u[0]
+        # phidot = self.u[1]
+        # self.x_next_state = np.array([xdot, ydot, thetadot, phidot])
 
-        self.f = Function('f', [self.x, self.u],[xdot, ydot, thetadot, phidot])
+        self.x_next_state = np.matrix([[np.cos(self.x[2]), 0],
+                                       [np.sin(self.x[2]), 0],
+                                       [np.tan(self.x[3])/self.L, 0],
+                                       [0, 1]]) @ np.matrix([[self.u[0]], [self.u[1]]])
+        
+        print(self.x_next_state)
+        self.f = Function('f', [self.x, self.u], self.x_next_state.tolist())
         
         self.v_limit = 1.5
         self.omega_limit = 0.5
@@ -106,21 +114,27 @@ class mpc_ctrl:
 
         State_xy = X[0:2, :]
         target_xy = [x_target, y_target]
-        L = 10*sumsqr(State_xy - target_xy) + sumsqr(U) # sum of QP terms
+        LL = 10* sumsqr(phi) + sumsqr(State_xy[-1] - target_xy) + sumsqr(U[-1])
+        L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL # sum of QP terms
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
 
         for k in range(self.N): # loop over control intervals
             # Runge-Kutta 4 integration
-            k11, k12, k13, k14 = self.f(X[:,k],         U[:,k])
-            k21, k22, k23, k24 = self.f(X[:,k]+self.dt/2*k11, U[:,k])
-            k31, k32, k33, k34 = self.f(X[:,k]+self.dt/2*k21, U[:,k])
-            k41, k42, k43, k44 = self.f(X[:,k]+self.dt*k31,   U[:,k])
-            x_next = X[0,k] + self.dt/6*(k11+2*k21+2*k31+k41)
-            y_next = X[1,k] + self.dt/6*(k12+2*k22+2*k32+k42)
-            theta_next = X[2,k] + self.dt/6*(k13+2*k23+2*k33+k43)
-            phi_next = X[3,k] + self.dt/6*(k14+2*k24+2*k34+k44)
+            # k11, k12, k13, k14 = self.f(X[:,k],         U[:,k])
+            # k21, k22, k23, k24 = self.f(X[:,k]+self.dt/2*[k11, k12, k13, k14], U[:,k])
+            # k31, k32, k33, k34 = self.f(X[:,k]+self.dt/2*[k21, k22, k23, k24], U[:,k])
+            # k41, k42, k43, k44 = self.f(X[:,k]+self.dt*[k31, k32, k33, k34],   U[:,k])
+            k1 = self.f(X[:,k],         U[:,k])
+            print(k1 + X[:,k])
+            k2= self.f(X[:,k]+(self.dt/2)*np.asarray(k1), U[:,k])
+            k3 = self.f(X[:,k]+self.dt/2*k2, U[:,k])
+            k4 = self.f(X[:,k]+self.dt*k3,   U[:,k])
+            x_next = X[0,k] + self.dt/6*(k1+2*k2+2*k3+k4)[0]
+            y_next = X[1,k] + self.dt/6*(k1+2*k2+2*k3+k4)[1]
+            theta_next = X[2,k] + self.dt/6*(k1+2*k2+2*k3+k4)[2]
+            phi_next = X[3,k] + self.dt/6*(k1+2*k2+2*k3+k4)[3]
             opti.subject_to(X[0,k+1]==x_next)
             opti.subject_to(X[1,k+1]==y_next)
             opti.subject_to(X[2,k+1]==theta_next)
@@ -133,6 +147,8 @@ class mpc_ctrl:
         # opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
         # opti.subject_to((pos_y)<=-20)
         # opti.subject_to((pos_y)>-23)
+        opti.subject_to((phi)<=0.25)
+        opti.subject_to((phi)>=-0.25)
 
         # ---- control constraints ----------
         v_limit_upper = self.v_limit
@@ -187,7 +203,7 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
-        x_target, y_target = -15, -21
+        x_target, y_target = -20, -25
 
         for i in tqdm.tqdm(range(self.Epi)):
             
@@ -217,7 +233,7 @@ class mpc_ctrl:
 
 
 
-            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < 0.5:
+            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < 0.9:
                 mpc_cmd.ctrl_cmd.linear_velocity = 0
                 self.ctrl_publisher.publish(mpc_cmd)
                 break
