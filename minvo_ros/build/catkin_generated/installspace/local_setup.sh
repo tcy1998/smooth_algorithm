@@ -3,7 +3,7 @@
 
 # since this file is sourced either use the provided _CATKIN_SETUP_DIR
 # or fall back to the destination set at configure time
-: ${_CATKIN_SETUP_DIR:=/home/gem/minvo_motion_planning/minvo_ros/install}
+: ${_CATKIN_SETUP_DIR:=/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/install}
 CATKIN_SETUP_UTIL_ARGS="--extend --local"
 . "$_CATKIN_SETUP_DIR/setup.sh"
 unset CATKIN_SETUP_UTIL_ARGS

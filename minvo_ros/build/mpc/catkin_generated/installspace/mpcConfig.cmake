@@ -67,14 +67,14 @@ set(mpc_CONFIG_INCLUDED TRUE)
 
 # set variables for source/devel/install prefixes
 if("FALSE" STREQUAL "TRUE")
-  set(mpc_SOURCE_PREFIX /home/gem/minvo_motion_planning/minvo_ros/src/mpc)
-  set(mpc_DEVEL_PREFIX /home/gem/minvo_motion_planning/minvo_ros/devel)
+  set(mpc_SOURCE_PREFIX /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/src/mpc)
+  set(mpc_DEVEL_PREFIX /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/devel)
   set(mpc_INSTALL_PREFIX "")
   set(mpc_PREFIX ${mpc_DEVEL_PREFIX})
 else()
   set(mpc_SOURCE_PREFIX "")
   set(mpc_DEVEL_PREFIX "")
-  set(mpc_INSTALL_PREFIX /home/gem/minvo_motion_planning/minvo_ros/install)
+  set(mpc_INSTALL_PREFIX /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/install)
   set(mpc_PREFIX ${mpc_INSTALL_PREFIX})
 endif()
 
@@ -154,7 +154,7 @@ foreach(library ${libraries})
     set(lib_path "")
     set(lib "${library}-NOTFOUND")
     # since the path where the library is found is returned we have to iterate over the paths manually
-    foreach(path /home/gem/minvo_motion_planning/minvo_ros/install/lib;/home/gem/minvo_motion_planning/minvo_ros/devel/lib;/opt/ros/noetic/lib)
+    foreach(path /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/install/lib;/opt/ros/noetic/lib)
       find_library(lib ${library}
         PATHS ${path}
         NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)

@@ -268,7 +268,7 @@ if __name__ == '__main__':
 
         if not args.local:
             # environment at generation time
-            CMAKE_PREFIX_PATH = r'/home/gem/minvo_motion_planning/minvo_ros/devel;/opt/ros/noetic'.split(';')
+            CMAKE_PREFIX_PATH = r'/opt/ros/noetic'.split(';')
         else:
             # don't consider any other prefix path than this one
             CMAKE_PREFIX_PATH = []

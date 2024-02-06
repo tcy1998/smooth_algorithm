@@ -1,0 +1,4 @@
+.vscode
+build
+minvo_ros/build
+minvo_ros/devel
