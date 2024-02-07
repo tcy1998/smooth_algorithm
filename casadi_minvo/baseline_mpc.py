@@ -7,14 +7,19 @@ import matplotlib.pyplot as plt
 from unicycle_pd import UnicyclePDController
 
 class mpc_ctrl:
-    def __init__(self):
+    def __init__(self, target_x, target_y):
         self.dt = 0.05 # time frequency 20Hz
         self.N = 20 # number of control intervals
         self.Epi = 500 # number of episodes
+
+        self.target_x = target_x
+        self.target_y = target_y
         
 
         self.gap = 2.5   # gap between upper and lower limit
         self.initial_pos_sin_obs = self.gap/2   # initial position of sin obstacles
+        self.upper_limit = 1.5
+        self.lower_limit = -2.0
 
         
         self.u = SX.sym("u", 2)    # control
@@ -39,6 +44,15 @@ class mpc_ctrl:
         self.omega_limit = 3.0
         self.constraint_k = self.omega_limit/self.v_limit
 
+        self.circle_obstacles_1 = {'x': 0.5, 'y': 0.5, 'r': 0.5}
+        self.circle_obstacles_2 = {'x': -0.5, 'y': -0.5, 'r': 0.6}
+        self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
+
+        self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
+
+    def distance_circle_obs(self, x, y, circle_obstacles):
+        return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
+
     def solver_mpc(self, x_init, y_init, theta_init):
         # ---- decision variables ---------
         opti = Opti() # Optimization problem
@@ -49,12 +63,10 @@ class mpc_ctrl:
 
         U = opti.variable(2, self.N+1)   # control points (2*1)
 
-        State_xy = X[0:2, :]
+        State_xy = X[0:2, :] - [self.target_x, self.target_y]
         V = U[0, :]
         L = 100*sumsqr(State_xy) + sumsqr(U)
-        # L = 10*sumsqr(State_xy) + sumsqr(V) # sum of QP terms
-        # print(sumsqr(State_xy))
-        # print(sumsqr(U))
+
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -83,27 +95,37 @@ class mpc_ctrl:
         #     opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
     
         # ---- path constraints 1 -----------
-        limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
-        limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
-        opti.subject_to(limit_lower(pos_x)<pos_y)
-        opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
+        if self.env_numb == 1:
+            limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
+            limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
+            opti.subject_to(limit_lower(pos_x)<pos_y)
+            opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
+            
+        # ---- path constraints 2 -----------
+        if self.env_numb == 2:
+            opti.subject_to(pos_y<=self.upper_limit)
+            opti.subject_to(pos_y>=self.lower_limit)
+            opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+            opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
+            opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
 
-        indicator_ = if_else(limit_upper(pos_x)>pos_y, 1, 0) + if_else(limit_lower(pos_x)<=pos_y, 1, 0)
-        # opti.minimize(10*sumsqr(indicator_)+L)
 
         # ---- control constraints ----------
         v_limit = 5.0
-        omega_limit = 0.2
+        omega_limit = 3.0
         constraint_k = omega_limit/v_limit
 
         ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
         ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
         ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
         ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
-        opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
-        opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
-        opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
-        opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
+        # opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
+        # opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
+        # opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
+        # opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
+
+        # opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
 
 
         
@@ -179,12 +201,18 @@ class mpc_ctrl:
             plt.show()
         
         return initial_x, initial_y, initial_theta, ctrls[-1]
+    
+    def dynamic_model(self, x, y, theta, v, w):
+        x_next = x + self.dt * v * np.cos(theta)
+        y_next = y + self.dt * v * np.sin(theta)
+        theta_next = theta + self.dt * w
+        return x_next, y_next, theta_next
 
     def main(self):
         start_x = -4
         start_y = 0
-        x_0, y_0, theta = start_x, start_y, np.pi*-0.3
-        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.3
+        x_0, y_0, theta = start_x, start_y, np.pi*-0.1
+        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.1
         U_real = np.array([0.0, 0.0])
 
         x_log, y_log = [x_0], [y_0]
@@ -199,10 +227,11 @@ class mpc_ctrl:
             
             x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
             desire_ctrl = U.T[0]
+            # print(U, desire_ctrl)
 
 
             if self.low_level_ == False:
-                x_real, y_real, theta_real = x_0, y_0, theta
+                x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
                 U_real = desire_ctrl
             else:
                 # print(desire_ctrl)
@@ -218,7 +247,7 @@ class mpc_ctrl:
             theta_real_log.append(theta_real)
             U_real_log.append(U_real)
 
-            if x_0 ** 2 + y_0 ** 2 < 0.01:
+            if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
                 break
         
         # Plot for control signals
@@ -246,21 +275,50 @@ class mpc_ctrl:
         plt.grid(True)
         plt.show()
 
-        ## Plot for sin obstacles and x-y positions
-        plt.plot(x_log, y_log, 'r-', label='desired path')
-        plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
-        plt.plot(0,0,'bo')
-        plt.plot(start_x, start_y, 'go')
-        plt.xlabel('pos_x')
-        plt.ylabel('pos_y')
-        x = np.arange(start_x-1,4,0.01)
-        y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
-        plt.plot(x, y, 'g-', label='upper limit')
-        plt.plot(x, y-self.gap, 'b-', label='lower limit')
-        plt.show()
+        ## Plot for sin obstacles and x-y positions env1
+        if self.env_numb == 1:
+            plt.plot(x_log, y_log, 'r-', label='desired path')
+            plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
+            plt.plot(self.target_x,self.target_y,'bo')
+            plt.plot(start_x, start_y, 'go')
+            plt.xlabel('pos_x')
+            plt.ylabel('pos_y')
+            x = np.arange(start_x-1,4,0.01)
+            y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
+            plt.plot(x, y, 'g-', label='upper limit')
+            plt.plot(x, y-self.gap, 'b-', label='lower limit')
+            plt.show()
+
+        ## Plot for circle obstacles and x-y positions env2
+        if self.env_numb == 2:
+            plt.plot(x_log, y_log, 'r-', label='desired path')
+            plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
+            plt.plot(self.target_x,self.target_y,'bo')
+            plt.plot(start_x, start_y, 'go')
+            plt.xlabel('pos_x')
+            plt.ylabel('pos_y')
+            target_circle1 = plt.Circle((self.circle_obstacles_1['x'], self.circle_obstacles_1['y']), self.circle_obstacles_1['r'], color='whitesmoke', fill=True)
+            target_circle2 = plt.Circle((self.circle_obstacles_2['x'], self.circle_obstacles_2['y']), self.circle_obstacles_2['r'], color='whitesmoke', fill=True)
+            target_circle3 = plt.Circle((self.circle_obstacles_3['x'], self.circle_obstacles_3['y']), self.circle_obstacles_3['r'], color='whitesmoke', fill=True)
+            target_circle4 = plt.Circle((self.circle_obstacles_1['x'], self.circle_obstacles_1['y']), self.circle_obstacles_1['r'], color='k', fill=False)
+            target_circle5 = plt.Circle((self.circle_obstacles_2['x'], self.circle_obstacles_2['y']), self.circle_obstacles_2['r'], color='k', fill=False)
+            target_circle6 = plt.Circle((self.circle_obstacles_3['x'], self.circle_obstacles_3['y']), self.circle_obstacles_3['r'], color='k', fill=False)
+            plt.gcf().gca().add_artist(target_circle1)
+            plt.gcf().gca().add_artist(target_circle2)
+            plt.gcf().gca().add_artist(target_circle3)
+            plt.gcf().gca().add_artist(target_circle4)
+            plt.gcf().gca().add_artist(target_circle5)
+            plt.gcf().gca().add_artist(target_circle6)
+            plt.axis([-5.0, 1.5, -2.4, 2.4])
+            # plt.axis('equal')
+            x = np.arange(start_x-1,4,0.01)
+            plt.plot(x, len(x)*[self.upper_limit], 'g-', label='upper limit')
+            plt.plot(x, len(x)*[self.lower_limit], 'b-', label='lower limit')
+            plt.legend()
+            plt.show()
 
 
 if __name__ == "__main__":
-
-    mpc = mpc_ctrl()
+    target_x, target_y = 0.5, -0.5
+    mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     mpc.main()
