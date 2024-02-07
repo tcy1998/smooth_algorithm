@@ -44,19 +44,12 @@ class mpc_ctrl:
 
         self.L = 1.75
 
-        # xdot = np.cos(self.x[2])*self.u[0]
-        # ydot = np.sin(self.x[2])*self.u[0]
-        # thetadot = (np.tan(self.x[3])/self.L)*self.u[0]
-        # phidot = self.u[1]
-        # self.x_next_state = np.array([xdot, ydot, thetadot, phidot])
-
-        self.x_next_state = np.matrix([[np.cos(self.x[2]), 0],
-                                       [np.sin(self.x[2]), 0],
-                                       [np.tan(self.x[3])/self.L, 0],
-                                       [0, 1]]) @ np.matrix([[self.u[0]], [self.u[1]]])
-        
-        print(self.x_next_state)
-        self.f = Function('f', [self.x, self.u], self.x_next_state.tolist())
+        xdot = np.cos(self.x[2])*self.u[0]
+        ydot = np.sin(self.x[2])*self.u[0]
+        thetadot = (np.tan(self.x[3])/self.L)*self.u[0]
+        phidot = self.u[1]
+        self.x_next_state = vertcat(xdot, ydot, thetadot, phidot)
+        self.f = Function('f', [self.x, self.u], [self.x_next_state])
         
         self.v_limit = 1.5
         self.omega_limit = 0.5
@@ -127,14 +120,13 @@ class mpc_ctrl:
             # k31, k32, k33, k34 = self.f(X[:,k]+self.dt/2*[k21, k22, k23, k24], U[:,k])
             # k41, k42, k43, k44 = self.f(X[:,k]+self.dt*[k31, k32, k33, k34],   U[:,k])
             k1 = self.f(X[:,k],         U[:,k])
-            print(k1 + X[:,k])
-            k2= self.f(X[:,k]+(self.dt/2)*np.asarray(k1), U[:,k])
+            k2= self.f(X[:,k]+(self.dt/2)*k1, U[:,k])
             k3 = self.f(X[:,k]+self.dt/2*k2, U[:,k])
             k4 = self.f(X[:,k]+self.dt*k3,   U[:,k])
-            x_next = X[0,k] + self.dt/6*(k1+2*k2+2*k3+k4)[0]
-            y_next = X[1,k] + self.dt/6*(k1+2*k2+2*k3+k4)[1]
-            theta_next = X[2,k] + self.dt/6*(k1+2*k2+2*k3+k4)[2]
-            phi_next = X[3,k] + self.dt/6*(k1+2*k2+2*k3+k4)[3]
+            x_next = X[0,k] + self.dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0])
+            y_next = X[1,k] + self.dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1])
+            theta_next = X[2,k] + self.dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2])
+            phi_next = X[3,k] + self.dt/6*(k1[3]+2*k2[3]+2*k3[3]+k4[3])
             opti.subject_to(X[0,k+1]==x_next)
             opti.subject_to(X[1,k+1]==y_next)
             opti.subject_to(X[2,k+1]==theta_next)

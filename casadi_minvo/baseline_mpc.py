@@ -16,8 +16,8 @@ class mpc_ctrl:
         self.target_y = target_y
         
 
-        self.gap = 2.5   # gap between upper and lower limit
-        self.initial_pos_sin_obs = self.gap/2   # initial position of sin obstacles
+        # self.gap = 1.   # gap between upper and lower limit
+        self.initial_pos_sin_obs = 1  # initial position of sin obstacles
         self.upper_limit = 1.5
         self.lower_limit = -2.0
 
@@ -25,11 +25,15 @@ class mpc_ctrl:
         self.u = SX.sym("u", 2)    # control
         self.x = SX.sym("x", 3)  # state
 
+        self.x_next = SX.sym("x_next", 3)  # state
+
         self.low_level_ = False
 
         xdot = np.cos(self.x[2])*self.u[0]
         ydot = np.sin(self.x[2])*self.u[0]
         thetadot = self.u[1]
+
+        self.x_dot =  vertcat(xdot, ydot, thetadot)
 
         self.Kp = 0.5
         self.Kd = 0.1
@@ -38,7 +42,8 @@ class mpc_ctrl:
 
         self.step_plotting = True
 
-        self.f = Function('f', [self.x, self.u],[xdot, ydot, thetadot])
+        # self.f = Function('f', [self.x, self.u],[xdot, ydot, thetadot])
+        self.f = Function('f', [self.x, self.u],[self.x_dot])
         
         self.v_limit = 5.0
         self.omega_limit = 3.0
@@ -65,7 +70,11 @@ class mpc_ctrl:
 
         State_xy = X[0:2, :] - [self.target_x, self.target_y]
         V = U[0, :]
-        L = 100*sumsqr(State_xy) + sumsqr(U)
+        
+        Last_term = X[:,-1]
+        LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) + sumsqr(Last_term[2])
+
+        L = 100*sumsqr(State_xy) + sumsqr(U) + 100*LL # sum of QP terms
 
 
         # ---- objective          ---------
@@ -73,16 +82,27 @@ class mpc_ctrl:
 
         for k in range(self.N): # loop over control intervals
             # Runge-Kutta 4 integration
-            k11, k12, k13 = self.f(X[:,k],         U[:,k])
-            k21, k22, k23 = self.f(X[:,k]+self.dt/2*k11, U[:,k])
-            k31, k32, k33 = self.f(X[:,k]+self.dt/2*k21, U[:,k])
-            k41, k42, k43 = self.f(X[:,k]+self.dt*k31,   U[:,k])
-            x_next = X[0,k] + self.dt/6*(k11+2*k21+2*k31+k41)
-            y_next = X[1,k] + self.dt/6*(k12+2*k22+2*k32+k42)
-            theta_next = X[2,k] + self.dt/6*(k13+2*k23+2*k33+k43)
+            # k11, k12, k13 = self.f(X[:,k],         U[:,k])
+            # k21, k22, k23 = self.f(X[:,k]+self.dt/2*k11, U[:,k])
+            # k31, k32, k33 = self.f(X[:,k]+self.dt/2*k21, U[:,k])
+            # k41, k42, k43 = self.f(X[:,k]+self.dt*k31,   U[:,k])
+            # x_next = X[0,k] + self.dt/6*(k11+2*k21+2*k31+k41)
+            # y_next = X[1,k] + self.dt/6*(k12+2*k22+2*k32+k42)
+            # theta_next = X[2,k] + self.dt/6*(k13+2*k23+2*k33+k43)
+            # opti.subject_to(X[0,k+1]==x_next)
+            # opti.subject_to(X[1,k+1]==y_next)
+            # opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
+            k1 = self.f(X[:,k],         U[:,k])
+            k2 = self.f(X[:,k]+self.dt/2*k1, U[:,k])
+            k3 = self.f(X[:,k]+self.dt/2*k2, U[:,k])
+            k4 = self.f(X[:,k]+self.dt*k3,   U[:,k])
+            x_next = X[0,k] + self.dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0])
+            y_next = X[1,k] + self.dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1])
+            theta_next = X[2,k] + self.dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2])
             opti.subject_to(X[0,k+1]==x_next)
             opti.subject_to(X[1,k+1]==y_next)
             opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
+
 
         # for k in range(self.N): # loop over control intervals
         #     # Runge-Kutta 4 integration
@@ -97,7 +117,7 @@ class mpc_ctrl:
         # ---- path constraints 1 -----------
         if self.env_numb == 1:
             limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
-            limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
+            limit_lower = lambda pos_x: sin(0.5*pi*pos_x) - self.initial_pos_sin_obs
             opti.subject_to(limit_lower(pos_x)<pos_y)
             opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
             
@@ -111,21 +131,21 @@ class mpc_ctrl:
 
 
         # ---- control constraints ----------
-        v_limit = 5.0
-        omega_limit = 3.0
+        v_limit = 1.0
+        omega_limit = 1.0
         constraint_k = omega_limit/v_limit
 
-        ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
-        ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
-        ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
-        ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
+        # ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
+        # ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
+        # ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
+        # ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
         # opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
         # opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
         # opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
         # opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
 
-        # opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
-        # opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
+        opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
+        opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
 
 
         
@@ -209,10 +229,10 @@ class mpc_ctrl:
         return x_next, y_next, theta_next
 
     def main(self):
-        start_x = -4
-        start_y = 0
-        x_0, y_0, theta = start_x, start_y, np.pi*-0.1
-        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.1
+        start_x, start_y = -4, 0                  # ENV2 start point
+        # start_x, start_y = -3.0, 1.0                # ENV1 start point
+        x_0, y_0, theta = start_x, start_y, np.pi*-0.0
+        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.0
         U_real = np.array([0.0, 0.0])
 
         x_log, y_log = [x_0], [y_0]
@@ -252,7 +272,7 @@ class mpc_ctrl:
         
         # Plot for control signals
         tt = np.arange(0, (len(U_log)), 1)*self.dt
-        t = np.arange(0, (len(theta_log))*self.dt, self.dt)
+        t = np.arange(0, (len(theta_log)), 1)*self.dt
         print(len(U_log), U_log)
         print(len(theta_log))
         print(len(tt))
@@ -286,7 +306,7 @@ class mpc_ctrl:
             x = np.arange(start_x-1,4,0.01)
             y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
             plt.plot(x, y, 'g-', label='upper limit')
-            plt.plot(x, y-self.gap, 'b-', label='lower limit')
+            plt.plot(x, y-2*self.initial_pos_sin_obs, 'b-', label='lower limit')
             plt.show()
 
         ## Plot for circle obstacles and x-y positions env2
@@ -319,6 +339,7 @@ class mpc_ctrl:
 
 
 if __name__ == "__main__":
-    target_x, target_y = 0.5, -0.5
+    target_x, target_y = 0.5, -0.5                # ENV 2 target point
+    # target_x, target_y = 3.0, -1.0                  # ENV 1 target point
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     mpc.main()
