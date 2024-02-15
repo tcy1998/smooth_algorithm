@@ -53,7 +53,7 @@ class mpc_ctrl:
         self.circle_obstacles_2 = {'x': -0.5, 'y': -0.5, 'r': 0.6}
         self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 
-        self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
+        self.env_numb = 2          # 1: sin wave obstacles, 2: circle obstacles
 
     def distance_circle_obs(self, x, y, circle_obstacles):
         return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2

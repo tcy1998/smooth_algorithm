@@ -17,8 +17,8 @@ class mpc_bspline_ctrl:
         self.gap = 2.5   # gap between upper and lower limit
         self.initial_pos_sin_obs = self.gap/2   # initial position of sin obstacles
 
-        self.upper_limit = 1.5 * 100
-        self.lower_limit = -2.0 * 100
+        self.upper_limit = 1.5 
+        self.lower_limit = -2.0 
 
         self.tau = SX.sym("tau")    # time
         self.u = SX.sym("u", 8)    # control
@@ -53,13 +53,10 @@ class mpc_bspline_ctrl:
         ydot = self.k21*self.u[0] + self.k23*self.u[2] + self.k25*self.u[4] + self.k27*self.u[6]
         thetadot = self.k32*self.u[1] + self.k34*self.u[3] + self.k36*self.u[5] + self.k38*self.u[7]
 
+        self.x_dot = vertcat(xdot, ydot, thetadot)
 
-        self.f = Function('f', [self.x, self.u, self.tau, self.tau_i, self.tau_i1],[xdot, ydot, thetadot])
+        self.f = Function('f', [self.x, self.u, self.tau, self.tau_i, self.tau_i1],[self.x_dot])
         self.dt = 0.05 # length of a control interval
-        # circle_obstacles_1 = {'x': 0.5, 'y': 0.5, 'r': 0.5}
-        # circle_obstacles_2 = {'x': -0.5, 'y': -0.5, 'r': 0.5}
-        # circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
-
         self.poly_degree = 3
         self.num_ctrl_points = 4
 
@@ -124,8 +121,9 @@ class mpc_bspline_ctrl:
         # Objective term
         State_xy = X[0:2, :] - [self.target_x, self.target_y]
         V = U[0, :]
-        # L = 10*sumsqr(State_xy) + sumsqr(V) 
-        L = 100*sumsqr(State_xy) + sumsqr(U) # sum of QP terms
+        Last_term = X[:,-1]
+        LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) + sumsqr(Last_term[2])
+        L = 100*sumsqr(State_xy) + sumsqr(U) + 100 * LL # sum of QP terms
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -135,16 +133,28 @@ class mpc_bspline_ctrl:
             index_ = self.find_correct_index(t, time_interval[k])
             timei = t[index_]
             timei1 = t[index_+1]
-            k11, k12, k13 = self.f(X[:,k],         U[:], time_interval[k], timei, timei1)
-            k21, k22, k23 = self.f(X[:,k]+self.dt/2*k11, U[:], time_interval[k], timei, timei1)
-            k31, k32, k33 = self.f(X[:,k]+self.dt/2*k21, U[:], time_interval[k], timei, timei1)
-            k41, k42, k43 = self.f(X[:,k]+self.dt*k31,   U[:], time_interval[k], timei, timei1)
-            x_next = X[0,k] + self.dt/6*(k11+2*k21+2*k31+k41)
-            y_next = X[1,k] + self.dt/6*(k12+2*k22+2*k32+k42)
-            theta_next = X[2,k] + self.dt/6*(k13+2*k23+2*k33+k43)
-            opti.subject_to(X[0,k+1]==x_next)
-            opti.subject_to(X[1,k+1]==y_next)
-            opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
+
+            # k11, k12, k13 = self.f(X[:,k],         U[:], time_interval[k], timei, timei1)
+            # k21, k22, k23 = self.f(X[:,k]+self.dt/2*k11, U[:], time_interval[k], timei, timei1)
+            # k31, k32, k33 = self.f(X[:,k]+self.dt/2*k21, U[:], time_interval[k], timei, timei1)
+            # k41, k42, k43 = self.f(X[:,k]+self.dt*k31,   U[:], time_interval[k], timei, timei1)
+            # x_next = X[0,k] + self.dt/6*(k11+2*k21+2*k31+k41)
+            # y_next = X[1,k] + self.dt/6*(k12+2*k22+2*k32+k42)
+            # theta_next = X[2,k] + self.dt/6*(k13+2*k23+2*k33+k43)
+            # opti.subject_to(X[0,k+1]==x_next)
+            # opti.subject_to(X[1,k+1]==y_next)
+            # opti.subject_to(X[2,k+1]==theta_next)   # close the gaps
+
+            k1 = self.f(X[:,k],         U[:], time_interval[k], timei, timei1)
+            k2 = self.f(X[:,k]+self.dt/2*k1, U[:], time_interval[k], timei, timei1)
+            k3 = self.f(X[:,k]+self.dt/2*k2, U[:], time_interval[k], timei, timei1)
+            k4 = self.f(X[:,k]+self.dt*k3,   U[:], time_interval[k], timei, timei1)
+            x_next = X[0,k] + self.dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0])
+            y_next = X[1,k] + self.dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1])
+            theta_next = X[2,k] + self.dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2])
+            opti.subject_to(X[0,k+1]==x_next) # close the gaps
+            opti.subject_to(X[1,k+1]==y_next) # close the gaps
+            opti.subject_to(X[2,k+1]==theta_next) # close the gaps
 
 
        # ---- path constraints 1 -----------
@@ -157,14 +167,14 @@ class mpc_bspline_ctrl:
         # ---- path constraints 2 -----------
         if self.env_numb == 2:
             opti.subject_to(pos_y<=self.upper_limit)
-            opti.subject_to(pos_y>=self.lower_limit)
+            # opti.subject_to(pos_y>=self.lower_limit)
             # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
             # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
             # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
 
         # ---- input constraints --------
-        v_limit = 5.0
-        omega_limit = 3.0
+        v_limit = 1.0
+        omega_limit = 1.0
         constraint_k = omega_limit/v_limit
 
         ctrl_constraint_leftupper = lambda ctrl_point: constraint_k*ctrl_point + omega_limit
@@ -190,6 +200,15 @@ class mpc_bspline_ctrl:
         # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_4[0])>=ctrl_point_4[1])
         # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_4[0])<=ctrl_point_4[1])
         # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_4[0])>=ctrl_point_4[1])
+
+        opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
+        opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
+        opti.subject_to(opti.bounded(-v_limit, U[4], v_limit))
+        opti.subject_to(opti.bounded(-v_limit, U[6], v_limit))
+        opti.subject_to(opti.bounded(-omega_limit, U[1], omega_limit))
+        opti.subject_to(opti.bounded(-omega_limit, U[3], omega_limit))
+        opti.subject_to(opti.bounded(-omega_limit, U[5], omega_limit))
+        opti.subject_to(opti.bounded(-omega_limit, U[7], omega_limit))
 
         # ---- boundary conditions --------
         opti.subject_to(pos_x[0]==x_init)
@@ -271,8 +290,8 @@ class mpc_bspline_ctrl:
         ### One time testing
         start_x = -4
         start_y = 0
-        x_0, y_0, theta = start_x, start_y, np.pi*-0.1
-        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.1
+        x_0, y_0, theta = start_x, start_y, np.pi*-0.0
+        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.0
         U_real = np.array([0.0, 0.0])
 
 
@@ -309,6 +328,9 @@ class mpc_bspline_ctrl:
             desire_ctrl = bspline_curve_prime[0:5]
             x_real, y_real, theta_real = self.dynamic_model_bspline(x_real, y_real, theta_real, desire_ctrl)
             # print("real_pos", x_real, y_real)
+
+            x_real_log.append(x_real)
+            y_real_log.append(y_real)
 
             x_log.append(x_0)
             y_log.append(y_0)
