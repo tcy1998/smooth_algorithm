@@ -3,7 +3,7 @@
 
 # Relative path conversion top directories.
 set(CMAKE_RELATIVE_PATH_TOP_SOURCE "/usr/src/googletest")
-set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build")
+set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/gem/minvo_motion_planning/minvo_ros/build")
 
 # Force unix paths in dependencies.
 set(CMAKE_FORCE_UNIX_PATHS 1)

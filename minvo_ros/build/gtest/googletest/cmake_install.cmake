@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/install")
+  set(CMAKE_INSTALL_PREFIX "/home/gem/minvo_motion_planning/minvo_ros/install")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
