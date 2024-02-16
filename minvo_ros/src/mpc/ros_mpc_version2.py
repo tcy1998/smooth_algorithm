@@ -25,7 +25,7 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
 
 global simulation
-simulation = 1 # 0 is off, 1 is on
+simulation = 0 # 0 is off, 1 is on
 
 class mpc_ctrl:
     def __init__(self):
@@ -41,6 +41,13 @@ class mpc_ctrl:
         self.u = SX.sym("u", 2)    # control
         self.x = SX.sym("x", 4)  # state
         self.x_next_state = SX.sym("x_next", 4)
+
+        self.circle_obstacles_1 = {'x': 0.5, 'y': 0.5, 'r': 0.5}
+        self.circle_obstacles_2 = {'x': -0.5, 'y': -0.5, 'r': 0.6}
+        self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
+
+        self.upper_limit = 1.5
+        self.lower_limit = -2.0
 
         self.L = 1.75
 
@@ -92,6 +99,9 @@ class mpc_ctrl:
         t4 = + 1.0 - 2.0 * (y * y + z * z)
         yaw_z = math.atan2(t3, t4)
         return yaw_z
+    
+    def distance_circle_obs(self, x, y, circle_obstacles):
+        return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
 
 
     def solver_mpc(self, x_init, y_init, theta_init, phi_init, x_target, y_target):
@@ -141,6 +151,12 @@ class mpc_ctrl:
         # opti.subject_to((pos_y)>-23)
         opti.subject_to((phi)<=0.25)
         opti.subject_to((phi)>=-0.25)
+
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
+        # opti.subject_to(pos_y<=self.upper_limit)
+        # opti.subject_to(pos_y>=self.lower_limit)
 
         # ---- control constraints ----------
         v_limit_upper = self.v_limit
@@ -195,7 +211,7 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
-        x_target, y_target = -20, -25
+        x_target, y_target = 0, 0
 
         for i in tqdm.tqdm(range(self.Epi)):
             
