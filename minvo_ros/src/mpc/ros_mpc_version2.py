@@ -25,7 +25,7 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
 
 global simulation
-simulation = 0 # 0 is off, 1 is on
+simulation = 1 # 0 is off, 1 is on
 
 class mpc_ctrl:
     def __init__(self):
@@ -42,12 +42,12 @@ class mpc_ctrl:
         self.x = SX.sym("x", 4)  # state
         self.x_next_state = SX.sym("x_next", 4)
 
-        self.circle_obstacles_1 = {'x': 0.5, 'y': 0.5, 'r': 0.5}
-        self.circle_obstacles_2 = {'x': -0.5, 'y': -0.5, 'r': 0.6}
-        self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
+        self.circle_obstacles_1 = {'x': -7, 'y': -20, 'r': 1.5}
+        self.circle_obstacles_2 = {'x': -12, 'y': -22, 'r': 1.6}
+        self.circle_obstacles_3 = {'x': -20, 'y': -21, 'r': 0.5}
 
-        self.upper_limit = 1.5
-        self.lower_limit = -2.0
+        self.upper_limit = -10
+        self.lower_limit = -30
 
         self.L = 1.75
 
@@ -149,12 +149,13 @@ class mpc_ctrl:
         # opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints
         # opti.subject_to((pos_y)<=-20)
         # opti.subject_to((pos_y)>-23)
-        opti.subject_to((phi)<=0.25)
-        opti.subject_to((phi)>=-0.25)
+            
+        # opti.subject_to((phi)<=0.25)
+        # opti.subject_to((phi)>=-0.25)
 
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
+        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
+        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
         # opti.subject_to(pos_y<=self.upper_limit)
         # opti.subject_to(pos_y>=self.lower_limit)
 
@@ -211,7 +212,8 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
-        x_target, y_target = 0, 0
+        x_target, y_target = -20, -15
+        # x_target, y_target = 0, 0
 
         for i in tqdm.tqdm(range(self.Epi)):
             
@@ -220,8 +222,9 @@ class mpc_ctrl:
             # real_theta = -self.yaw_from_quaternion(quat_x, quat_y, quat_z, quat_w) + arctan2(real_y, real_x)
             (roll, pitch, real_theta) = euler_from_quaternion([quat_x, quat_y, quat_z, quat_w])
 
-            print(real_x, real_y)
             x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi, x_target, y_target)
+            print(real_x, real_y, phi, theta)
+
             # theta = theta_change(theta)
             x_log.append(x_0)
             y_log.append(y_0)
