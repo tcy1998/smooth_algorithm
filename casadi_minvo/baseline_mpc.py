@@ -248,14 +248,22 @@ class mpc_ctrl:
             x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
             desire_ctrl = U.T[0]
             # print(U, desire_ctrl)
+            # print("desire_ctrl", desire_ctrl)
+            # print("desire_state", x_0, y_0, theta)
+            # print("real_state", x_real, y_real, theta_real)
+            x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
+            U_real = desire_ctrl
 
+            # print("desire_ctrl", desire_ctrl)
+            # print("desire_state", x_0, y_0, theta)
+            # print("real_state", x_real, y_real, theta_real)
 
-            if self.low_level_ == False:
-                x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
-                U_real = desire_ctrl
-            else:
-                # print(desire_ctrl)
-                x_real, y_real, theta_real, U_real = self.low_level_ctrl(desire_ctrl, theta_real, x_real, y_real, U_real)
+            # if self.low_level_ == False:
+            #     x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
+            #     U_real = desire_ctrl
+            # else:
+            #     # print(desire_ctrl)
+            #     x_real, y_real, theta_real, U_real = self.low_level_ctrl(desire_ctrl, theta_real, x_real, y_real, U_real)
                 
             x_log.append(x_0)
             y_log.append(y_0)

@@ -39,7 +39,7 @@ class Bspline_basis():
       n = len(control_points) - 1
       m = len(knots) - 1
       assert (n + degree + 1) == m
-      t = np.linspace(0, max(knots), 100)
+      t = np.linspace(0, max(knots), 101)
       # t = np.linspace(degree, len(control_points), 100)
       # t = np.linspace(degree, len(control_points), 100)
       
@@ -121,9 +121,7 @@ class Bspline_basis():
                 [-0.8349, -0.4568, 0.7921, 0.4996],
                 [0.4302, 0.4568, 0.02698, 0.0004103]])
       inverse_A_3 = np.linalg.inv(A_3)
-      
-      
-      
+            
       
       u_t = (t - ti) / (ti_plus_1 - ti)
       UU = np.array([[1, u_t, u_t ** 2, u_t **3]])

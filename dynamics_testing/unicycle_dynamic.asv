@@ -11,11 +11,9 @@ gamma = [1 h h^2 h^3];
 G = [cos(theta) 0; sin(theta) 0; 0 1];
 gM = gamma * M;
 vecQ = [v1; v2; v3; v4; w1; w2; w3; w4];
-x_dot =  kron(gM, G)*vecQ;
+x_dot =  kron(gM, G)*vecQ
 
-gmgm = kron(gM, gM);
-int_gmgm = int(gmgm, tau, 0, t);
-
+Q = [v1 w1; v2 w2]
 
 % 
 % K = kron(H.', G)

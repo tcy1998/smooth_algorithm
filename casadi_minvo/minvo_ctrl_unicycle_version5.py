@@ -26,16 +26,29 @@ class mpc_bspline_ctrl:
         self.tau_i = SX.sym("tau_i")   # time interval i
         self.tau_i1 = SX.sym("tau_i1")   # time interval i+1
 
-        self.k32 = (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) - (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 - (self.tau - self.tau_i)**3/(self.tau_i - self.tau_i1)**3 - 1
+        # self.k32 = (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) - (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 - (self.tau - self.tau_i)**3/(self.tau_i - self.tau_i1)**3 - 1
+        # self.k11 = np.cos(self.x[2])*self.k32
+        # self.k21 = np.sin(self.x[2])*self.k32
+        # self.k34 = (6*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) + (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 + 3
+        # self.k13 = np.cos(self.x[2])*self.k34
+        # self.k23 = np.sin(self.x[2])*self.k34
+        # self.k36 = - (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) - 3 
+        # self.k15 = np.cos(self.x[2])*self.k36
+        # self.k25 = np.sin(self.x[2])*self.k36
+        # self.k38 = 1
+        # self.k17 = np.cos(self.x[2])*self.k38
+        # self.k27 = np.sin(self.x[2])*self.k38
+
+        self.k32 = (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) + (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 + (self.tau - self.tau_i)**3/(self.tau_i - self.tau_i1)**3 + 1
         self.k11 = np.cos(self.x[2])*self.k32
         self.k21 = np.sin(self.x[2])*self.k32
-        self.k34 = (6*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) + (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 + 3
+        self.k34 = - (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) - (6*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 - (3*(self.tau - self.tau_i)**3)/(self.tau_i - self.tau_i1)**3
         self.k13 = np.cos(self.x[2])*self.k34
         self.k23 = np.sin(self.x[2])*self.k34
-        self.k36 = - (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) - 3 
+        self.k36 = (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 + (3*(self.tau - self.tau_i)**3)/(self.tau_i - self.tau_i1)**3
         self.k15 = np.cos(self.x[2])*self.k36
         self.k25 = np.sin(self.x[2])*self.k36
-        self.k38 = 1
+        self.k38 = -(self.tau - self.tau_i)**3/(self.tau_i - self.tau_i1)**3
         self.k17 = np.cos(self.x[2])*self.k38
         self.k27 = np.sin(self.x[2])*self.k38
 
@@ -45,9 +58,9 @@ class mpc_bspline_ctrl:
         self.dt2 = 0.0025
         
         # ---- dynamic constraints --------
-        # xdot = k11*u[0] + k13*u[1] + k15*u[2] + k17*u[3]
-        # ydot = k21*u[0] + k23*u[1] + k25*u[2] + k27*u[3]
-        # thetadot = k32*u[4] + k34*u[5] + k36*u[6] + k38*u[7]
+        # xdot = self.k11*self.u[0] + self.k13*self.u[1] + self.k15*self.u[2] + self.k17*self.u[3]
+        # ydot = self.k21*self.u[0] + self.k23*self.u[1] + self.k25*self.u[2] + self.k27*self.u[3]
+        # thetadot = self.k32*self.u[4] + self.k34*self.u[5] + self.k36*self.u[6] + self.k38*self.u[7]
 
         xdot = self.k11*self.u[0] + self.k13*self.u[2] + self.k15*self.u[4] + self.k17*self.u[6]
         ydot = self.k21*self.u[0] + self.k23*self.u[2] + self.k25*self.u[4] + self.k27*self.u[6]
@@ -108,10 +121,10 @@ class mpc_bspline_ctrl:
         theta = X[2,:]
 
         U = opti.variable(8, 1)   # control points (8*1)
-        ctrl_point_1 = [U[0], U[4]]
-        ctrl_point_2 = [U[1], U[5]]
-        ctrl_point_3 = [U[2], U[6]]
-        ctrl_point_4 = [U[3], U[7]]
+        ctrl_point_1 = [U[0], U[1]]
+        ctrl_point_2 = [U[2], U[3]]
+        ctrl_point_3 = [U[4], U[5]]
+        ctrl_point_4 = [U[6], U[7]]
 
         # Clamped uniform time knots
         # time_knots = np.array([0]*poly_degree + list(range(num_ctrl_points-poly_degree+1)) + [num_ctrl_points-poly_degree]*poly_degree,dtype='int')
@@ -120,7 +133,6 @@ class mpc_bspline_ctrl:
         t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
         # Objective term
         State_xy = X[0:2, :] - [self.target_x, self.target_y]
-        V = U[0, :]
         Last_term = X[:,-1]
         LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) + sumsqr(Last_term[2])
         L = 100*sumsqr(State_xy) + sumsqr(U) + 100 * LL # sum of QP terms
@@ -167,10 +179,10 @@ class mpc_bspline_ctrl:
         # ---- path constraints 2 -----------
         if self.env_numb == 2:
             opti.subject_to(pos_y<=self.upper_limit)
-            # opti.subject_to(pos_y>=self.lower_limit)
-            # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
-            # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
-            # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
+            opti.subject_to(pos_y>=self.lower_limit)
+            opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+            opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
+            opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
 
         # ---- input constraints --------
         v_limit = 1.0
@@ -273,15 +285,21 @@ class mpc_bspline_ctrl:
 
     def dynamic_model_bspline(self, x, y, theta, ctrls):
         len_ctrls = len(ctrls)
+        xx = []
+        yy = []
+        ttheta = []
         for i in range(len_ctrls):
             v = ctrls[i][0]
             w = ctrls[i][1]
-            x = x + v * np.sin(theta) * self.dt/len_ctrls
-            y = y + v * np.cos(theta) * self.dt/len_ctrls
+            x = x + v * np.cos(theta) * self.dt/len_ctrls
+            y = y + v * np.sin(theta) * self.dt/len_ctrls
             theta = theta + w * self.dt/len_ctrls
+            xx.append(x)
+            yy.append(y)
+            ttheta.append(theta)
 
         x_next, y_next, theta_next = x, y, theta
-        return x_next, y_next, theta_next
+        return x_next, y_next, theta_next, xx, yy, ttheta
 
 
     # ---- post-processing        ------
@@ -315,19 +333,29 @@ class mpc_bspline_ctrl:
 
             x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
 
-            ctrl_point_1 = [U[0], U[4]]
-            ctrl_point_2 = [U[1], U[5]]
-            ctrl_point_3 = [U[2], U[6]]
-            ctrl_point_4 = [U[3], U[7]]
-            ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
+            # x_real, y_real, theta_real = x_0, y_0, theta
 
+            ctrl_point_1 = [U[0], U[1]]
+            ctrl_point_2 = [U[2], U[3]]
+            ctrl_point_3 = [U[4], U[5]]
+            ctrl_point_4 = [U[6], U[7]]
+            ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
+            
             t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
             traj_prime = Bspline_basis()
             bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
-            # print("bspline_curve_prime", len(bspline_curve_prime))
             desire_ctrl = bspline_curve_prime[0:5]
-            x_real, y_real, theta_real = self.dynamic_model_bspline(x_real, y_real, theta_real, desire_ctrl)
-            # print("real_pos", x_real, y_real)
+            
+
+            x_real, y_real, theta_real, x_real_more, y_real_more, theta_real_more = self.dynamic_model_bspline(x_real, y_real, theta_real, desire_ctrl)
+            # print("desire_ctrl", desire_ctrl)
+            # print("ctrl_points" ,ctrl_points)
+            # print("real_pos", x_real, y_real, theta_real)
+            # print("desire_pos", x_0, y_0, theta)
+            # print("states_more", x_real_more, y_real_more, theta_real_more)
+            # print("desire_states_more", X[0,:], X[1,:], X[2,:])
+            # print("bspline_curve_prime", len(bspline_curve_prime))
+
 
             x_real_log.append(x_real)
             y_real_log.append(y_real)
@@ -421,6 +449,15 @@ class mpc_bspline_ctrl:
             plt.plot(x, len(x)*[self.upper_limit], 'g-', label='upper limit')
             plt.plot(x, len(x)*[self.lower_limit], 'b-', label='lower limit')
             plt.legend()
+            plt.show()
+
+        if self.env_numb == 0:
+            plt.plot(x_log, y_log, 'r-', label='desired path')
+            plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
+            plt.plot(self.target_x,self.target_y,'bo')
+            plt.plot(start_x, start_y, 'go')
+            plt.xlabel('pos_x')
+            plt.ylabel('pos_y')
             plt.show()
 
 
