@@ -5,6 +5,7 @@ import math
 from B_spline import Bspline, Bspline_basis
 import matplotlib.pyplot as plt
 from unicycle_pd import UnicyclePDController
+import pickle
 
 class mpc_bspline_ctrl:
     def __init__(self, target_x, target_y):
@@ -81,7 +82,7 @@ class mpc_bspline_ctrl:
         self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 
         self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
-
+        self.plot_figures = False
         # def distance_circle_obs(self, x, y, circle_obstacles):
         #     return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
     def distance_circle_obs(self, x, y, circle_obstacles):
@@ -193,34 +194,34 @@ class mpc_bspline_ctrl:
         ctrl_constraint_rightlower = lambda ctrl_point: constraint_k*ctrl_point - omega_limit
         ctrl_constraint_leftlower = lambda ctrl_point: -constraint_k*ctrl_point - omega_limit
         ctrl_constraint_rightupper = lambda ctrl_point: -constraint_k*ctrl_point + omega_limit
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_1[0])<=ctrl_point_1[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_1[0])>=ctrl_point_1[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_1[0])<=ctrl_point_1[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_1[0])>=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_1[0])<=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_1[0])>=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_1[0])<=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_1[0])>=ctrl_point_1[1])
 
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_2[0])<=ctrl_point_2[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_2[0])>=ctrl_point_2[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_2[0])<=ctrl_point_2[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_2[0])>=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_2[0])<=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_2[0])>=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_2[0])<=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_2[0])>=ctrl_point_2[1])
 
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_3[0])<=ctrl_point_3[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_3[0])>=ctrl_point_3[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_3[0])<=ctrl_point_3[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_3[0])>=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_3[0])<=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_3[0])>=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_3[0])<=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_3[0])>=ctrl_point_3[1])
 
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_4[0])<=ctrl_point_4[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_4[0])>=ctrl_point_4[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_4[0])<=ctrl_point_4[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_4[0])>=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_4[0])<=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_4[0])>=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_4[0])<=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_4[0])>=ctrl_point_4[1])
 
-        opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
-        opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
-        opti.subject_to(opti.bounded(-v_limit, U[4], v_limit))
-        opti.subject_to(opti.bounded(-v_limit, U[6], v_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[1], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[3], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[5], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[7], omega_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[4], v_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[6], v_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[1], omega_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[3], omega_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[5], omega_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[7], omega_limit))
 
         # ---- boundary conditions --------
         opti.subject_to(pos_x[0]==x_init)
@@ -304,13 +305,14 @@ class mpc_bspline_ctrl:
 
     # ---- post-processing        ------
 
-    def main(self):
+    def main(self, x_init, y_init, theta_init):
         ### One time testing
-        start_x = -4
-        start_y = 0
-        x_0, y_0, theta = start_x, start_y, np.pi*-0.0
-        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.0
+        start_x, start_y = x_init, y_init                   # ENV2 start point
+        # start_x, start_y = -3.0, 1.0                # ENV1 start point
+        x_0, y_0, theta = start_x, start_y, theta_init
+        x_real, y_real, theta_real = start_x, start_y, theta
         U_real = np.array([0.0, 0.0])
+        theta_0 = theta_init            # Save the initial theta
 
 
         # x_0, y_0, theta = -7, 1, np.pi*-0.3
@@ -318,6 +320,7 @@ class mpc_bspline_ctrl:
 
         x_log, y_log = [x_0], [y_0]
         theta_log = [theta]
+        U_log = []
 
         x_real_log, y_real_log = [x_real], [y_real]
         theta_real_log = [theta_real]
@@ -331,81 +334,90 @@ class mpc_bspline_ctrl:
 
         for i in tqdm.tqdm(range(self.Epi)):
 
-            x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
-
-            # x_real, y_real, theta_real = x_0, y_0, theta
-
-            ctrl_point_1 = [U[0], U[1]]
-            ctrl_point_2 = [U[2], U[3]]
-            ctrl_point_3 = [U[4], U[5]]
-            ctrl_point_4 = [U[6], U[7]]
-            ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
-            
-            t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
-            traj_prime = Bspline_basis()
-            bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
-            desire_ctrl = bspline_curve_prime[0:5]
-            
-
-            x_real, y_real, theta_real, x_real_more, y_real_more, theta_real_more = self.dynamic_model_bspline(x_real, y_real, theta_real, desire_ctrl)
-            # print("desire_ctrl", desire_ctrl)
-            # print("ctrl_points" ,ctrl_points)
-            # print("real_pos", x_real, y_real, theta_real)
-            # print("desire_pos", x_0, y_0, theta)
-            # print("states_more", x_real_more, y_real_more, theta_real_more)
-            # print("desire_states_more", X[0,:], X[1,:], X[2,:])
-            # print("bspline_curve_prime", len(bspline_curve_prime))
-
-
-            x_real_log.append(x_real)
-            y_real_log.append(y_real)
-
-            x_log.append(x_0)
-            y_log.append(y_0)
-            theta_log.append(theta)
-            if self.step_plotting == True:
-                plt.plot(X[0,:], X[1,:], 'r-')
-                plt.plot(x_0, y_0, 'bo')
-                plt.plot(X[0,0], X[1,0], 'go')
-                x = np.arange(-7,4,0.01)
-                y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
-                plt.plot(x, y, 'g-', label='upper limit')
-                plt.plot(x, y-self.gap, 'b-', label='lower limit')
-                plt.show()
-
-                ctrl_point_1 = [U[0], U[4]]
-                ctrl_point_2 = [U[1], U[5]]
-                ctrl_point_3 = [U[2], U[6]]
-                ctrl_point_4 = [U[3], U[7]]
+            try:
+                x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
+                ctrl_point_1 = [U[0], U[1]]
+                ctrl_point_2 = [U[2], U[3]]
+                ctrl_point_3 = [U[4], U[5]]
+                ctrl_point_4 = [U[6], U[7]]
                 ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
-                print("ctrl_points" ,ctrl_points)
-                # t1 = np.array([0]*curve_degree + list(range(len(ctrl_points)-curve_degree+1)) + [len(ctrl_points)-curve_degree]*curve_degree,dtype='int')
-                # t1 = t1 * dt *N
-                # print(t1)
-
-                ### Plot for B-spline basis
-                # t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*dt/N
+                
                 t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
-                t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*self.dt*self.N/(len(ctrl_points)+curve_degree)
-                # print(t2)
-                plt.plot(ctrl_points[:,0],ctrl_points[:,1], 'o-', label='Control Points')
                 traj_prime = Bspline_basis()
                 bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
-                plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
-                plt.gca().set_aspect('equal', adjustable='box')
-                len_bspline_curve_prime = len(bspline_curve_prime)
-                half_len = int(len_bspline_curve_prime/2)
-                plt.arrow(bspline_curve_prime[half_len,0], bspline_curve_prime[half_len,1], bspline_curve_prime[half_len+1,0]-bspline_curve_prime[half_len,0], bspline_curve_prime[half_len+1,1]-bspline_curve_prime[half_len,1], head_width=0.1, head_length=0.3, fc='k', ec='k')
-                plt.legend(loc='upper right')
-                plt.show()
-            if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
-                break
+                desire_ctrl = bspline_curve_prime[0:5]
+                
+                
+
+                x_real, y_real, theta_real, x_real_more, y_real_more, theta_real_more = self.dynamic_model_bspline(x_real, y_real, theta_real, desire_ctrl)
+                # print("desire_ctrl", desire_ctrl)
+                # print("ctrl_points" ,ctrl_points)
+                # print("real_pos", x_real, y_real, theta_real)
+                # print("desire_pos", x_0, y_0, theta)
+                # print("states_more", x_real_more, y_real_more, theta_real_more)
+                # print("desire_states_more", X[0,:], X[1,:], X[2,:])
+                # print("bspline_curve_prime", len(bspline_curve_prime))
+
+
+                x_real_log.append(x_real)
+                y_real_log.append(y_real)
+                U_log.append(desire_ctrl)
+
+                x_log.append(x_0)
+                y_log.append(y_0)
+                theta_log.append(theta)
+                if self.step_plotting == True:
+                    plt.plot(X[0,:], X[1,:], 'r-')
+                    plt.plot(x_0, y_0, 'bo')
+                    plt.plot(X[0,0], X[1,0], 'go')
+                    x = np.arange(-7,4,0.01)
+                    y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
+                    plt.plot(x, y, 'g-', label='upper limit')
+                    plt.plot(x, y-self.gap, 'b-', label='lower limit')
+                    plt.show()
+
+                    ctrl_point_1 = [U[0], U[4]]
+                    ctrl_point_2 = [U[1], U[5]]
+                    ctrl_point_3 = [U[2], U[6]]
+                    ctrl_point_4 = [U[3], U[7]]
+                    ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
+                    print("ctrl_points" ,ctrl_points)
+                    # t1 = np.array([0]*curve_degree + list(range(len(ctrl_points)-curve_degree+1)) + [len(ctrl_points)-curve_degree]*curve_degree,dtype='int')
+                    # t1 = t1 * dt *N
+                    # print(t1)
+
+                    ### Plot for B-spline basis
+                    # t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*dt/N
+                    t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
+                    t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*self.dt*self.N/(len(ctrl_points)+curve_degree)
+                    # print(t2)
+                    plt.plot(ctrl_points[:,0],ctrl_points[:,1], 'o-', label='Control Points')
+                    traj_prime = Bspline_basis()
+                    bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
+                    plt.plot(bspline_curve_prime[:,0], bspline_curve_prime[:,1], label='B-spline Curve')
+                    plt.gca().set_aspect('equal', adjustable='box')
+                    len_bspline_curve_prime = len(bspline_curve_prime)
+                    half_len = int(len_bspline_curve_prime/2)
+                    plt.arrow(bspline_curve_prime[half_len,0], bspline_curve_prime[half_len,1], bspline_curve_prime[half_len+1,0]-bspline_curve_prime[half_len,0], bspline_curve_prime[half_len+1,1]-bspline_curve_prime[half_len,1], head_width=0.1, head_length=0.3, fc='k', ec='k')
+                    plt.legend(loc='upper right')
+                    plt.show()
+                if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
+                    print("reach the target", theta_0)
+                    if self.plot_figures == True:
+                        self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                    return [1, theta_log], x_log, y_log
+            except RuntimeError:
+                print("Infesible", theta_0)
+                if self.plot_figures == True:
+                    self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                return [0, theta_log], x_log, y_log
+        print("not reach the target", theta_0)
+        if self.plot_figures == True:
+            self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+        return [0, theta_log], x_log, y_log
         
-        ## Plot for control signals
+    def plot_results(self, x_log, y_log, x_real_log, y_real_log, theta_log, theta_real_log, start_x, start_y):
         tt = np.arange(0, (len(x_log))*self.dt, self.dt)
-
-
-        ## Plot for theta
         t = np.arange(0, len(x_log), 1)
         plt.plot(t, theta_log, 'r-')
         plt.show()
@@ -460,65 +472,32 @@ class mpc_bspline_ctrl:
             plt.ylabel('pos_y')
             plt.show()
 
+    def mutli_init_theta(self):
+        THETA = np.arange(-np.pi, np.pi, 0.1)
+        LOG_theta = []
+        LOG_traj = []
+        ii = 0
+        start_x, start_y = -4, 0
+        for theta in THETA:
+            print("epsidoe", ii)
+            Data_vel, Data_tarj_x, Data_tarj_y = self.main(start_x, start_y, theta)
+            LOG_theta.append(Data_vel)
+            LOG_traj.append([Data_tarj_x, Data_tarj_y])
+            ii += 1
+        
+        with open('LOG_initial_theta_env12.pkl', 'wb') as f:
+            pickle.dump(LOG_theta, f)
+
+        with open('LOG_traj_env_12.pkl', 'wb') as f:
+            pickle.dump(LOG_traj, f)
+
 
 if __name__ == "__main__":
     # try:
     target_x, target_y = 0.5, -0.5
     mpc_bspline = mpc_bspline_ctrl(target_x=target_x, target_y=target_y)
-    mpc_bspline.main()
-    # except RuntimeError:
-    #     print("RuntimeError")
+    # start_x, start_y = -4, 0
+    # theta = 0.0
+    # mpc_bspline.main(start_x, start_y, theta)
+    mpc_bspline.mutli_init_theta()
 
-### Plot for circle obstacles
-# target_circle1 = plt.Circle((circle_obstacles_1['x'], circle_obstacles_1['y']), circle_obstacles_1['r'], color='b', fill=False)
-# target_circle2 = plt.Circle((circle_obstacles_2['x'], circle_obstacles_2['y']), circle_obstacles_2['r'], color='b', fill=False)
-# target_circle3 = plt.Circle((circle_obstacles_3['x'], circle_obstacles_3['y']), circle_obstacles_3['r'], color='b', fill=False)
-# plt.gcf().gca().add_artist(target_circle1)
-# plt.gcf().gca().add_artist(target_circle2)
-# plt.gcf().gca().add_artist(target_circle3)
-# x = np.arange(-4,4,0.01)
-# y = 1.5 + 0*x
-# plt.plot(x, y, 'g-', label='upper limit')
-# plt.plot(x, y-3, 'b-', label='lower limit')
-# plt.draw()
-# plt.pause(1)
-# input("<Hit Enter>")
-# plt.close()
-
-## MPC with different initial theta
-
-# def MPC_diff_init(x_0, y_0, theta_0):
-#     Epis = 1000
-#     x_log, y_log = [x_0], [y_0]
-#     curve_degree = 3
-#     control_pt_num = 4
-#     time_knots_num = control_pt_num + curve_degree + 1
-#     for t in tqdm.tqdm(range(Epis)):
-#         try:
-#             x_0, y_0, theta_0 = solver_mpc(x_0, y_0, theta_0, t*dt)
-#             x_log.append(x_0)
-#             y_log.append(y_0)
-#             if x_0 ** 2 + y_0 ** 2 < 0.01:
-#                 return [1, theta_0], x_log, y_log
-#         except RuntimeError:
-#             return [0, theta_0], x_log, y_log
-#     return [0, theta_0], x_log, y_log
-
-# THETA = np.arange(-np.pi, np.pi, 0.1)
-# LOG_theta = []
-# LOG_traj = []
-# ii = 0
-# for theta in THETA:
-#     print("epsidoe", ii)
-#     Data_vel, Data_tarj_x, Data_tarj_y = MPC_diff_init(-3, 1, theta)
-#     LOG_theta.append(Data_vel)
-#     LOG_traj.append([Data_tarj_x, Data_tarj_y])
-#     ii += 1
-
-# import pickle
-
-# with open('LOG_initial_theta_env4.pkl', 'wb') as f:
-#     pickle.dump(LOG_theta, f)
-
-# with open('LOG_traj_env_4.pkl', 'wb') as f:
-#     pickle.dump(LOG_traj, f)

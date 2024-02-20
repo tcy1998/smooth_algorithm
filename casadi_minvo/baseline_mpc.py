@@ -6,6 +6,8 @@ from B_spline import Bspline, Bspline_basis
 import matplotlib.pyplot as plt
 from unicycle_pd import UnicyclePDController
 
+import pickle
+
 class mpc_ctrl:
     def __init__(self, target_x, target_y):
         self.dt = 0.05 # time frequency 20Hz
@@ -40,7 +42,7 @@ class mpc_ctrl:
         self.dt1 = 0.05
         self.dt2 = 0.0025
 
-        self.step_plotting = True
+        self.step_plotting = False
 
         # self.f = Function('f', [self.x, self.u],[xdot, ydot, thetadot])
         self.f = Function('f', [self.x, self.u],[self.x_dot])
@@ -54,6 +56,7 @@ class mpc_ctrl:
         self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 
         self.env_numb = 2          # 1: sin wave obstacles, 2: circle obstacles
+        self.plot_figures = False
 
     def distance_circle_obs(self, x, y, circle_obstacles):
         return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
@@ -118,8 +121,8 @@ class mpc_ctrl:
         if self.env_numb == 1:
             limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
             limit_lower = lambda pos_x: sin(0.5*pi*pos_x) - self.initial_pos_sin_obs
-            opti.subject_to(limit_lower(pos_x)<pos_y)
-            opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
+            # opti.subject_to(limit_lower(pos_x)<pos_y)
+            # opti.subject_to(limit_upper(pos_x)>pos_y)   # state constraints 
             
         # ---- path constraints 2 -----------
         if self.env_numb == 2:
@@ -135,17 +138,17 @@ class mpc_ctrl:
         omega_limit = 1.0
         constraint_k = omega_limit/v_limit
 
-        # ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
-        # ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
-        # ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
-        # ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
-        # opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
-        # opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
-        # opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
-        # opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
+        ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
+        ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
+        ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
+        ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
+        opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
+        opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
+        opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
+        opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
 
-        opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
 
 
         
@@ -228,11 +231,13 @@ class mpc_ctrl:
         theta_next = theta + self.dt * w
         return x_next, y_next, theta_next
 
-    def main(self):
-        start_x, start_y = -4, 0                  # ENV2 start point
+    def main(self, x_init, y_init, theta_init):
+        
+        start_x, start_y = x_init, y_init                   # ENV2 start point
         # start_x, start_y = -3.0, 1.0                # ENV1 start point
-        x_0, y_0, theta = start_x, start_y, np.pi*-0.0
-        x_real, y_real, theta_real = start_x, start_y, np.pi*-0.0
+        x_0, y_0, theta = start_x, start_y, theta_init
+        x_real, y_real, theta_real = start_x, start_y, theta_init
+        theta_0 = theta_init            # Save the initial theta
         U_real = np.array([0.0, 0.0])
 
         x_log, y_log = [x_0], [y_0]
@@ -244,47 +249,55 @@ class mpc_ctrl:
         U_real_log = []
 
         for i in tqdm.tqdm(range(self.Epi)):
-            
-            x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
-            desire_ctrl = U.T[0]
-            # print(U, desire_ctrl)
-            # print("desire_ctrl", desire_ctrl)
-            # print("desire_state", x_0, y_0, theta)
-            # print("real_state", x_real, y_real, theta_real)
-            x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
-            U_real = desire_ctrl
 
-            # print("desire_ctrl", desire_ctrl)
-            # print("desire_state", x_0, y_0, theta)
-            # print("real_state", x_real, y_real, theta_real)
+            try:
+                x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
+                desire_ctrl = U.T[0]
+                # print(U, desire_ctrl)
+                # print("desire_ctrl", desire_ctrl)
+                # print("desire_state", x_0, y_0, theta)
+                # print("real_state", x_real, y_real, theta_real)
+                x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
+                U_real = desire_ctrl
 
-            # if self.low_level_ == False:
-            #     x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
-            #     U_real = desire_ctrl
-            # else:
-            #     # print(desire_ctrl)
-            #     x_real, y_real, theta_real, U_real = self.low_level_ctrl(desire_ctrl, theta_real, x_real, y_real, U_real)
-                
-            x_log.append(x_0)
-            y_log.append(y_0)
-            theta_log.append(theta)
-            U_log.append(desire_ctrl)
+                # print("desire_ctrl", desire_ctrl)
+                # print("desire_state", x_0, y_0, theta)
+                # print("real_state", x_real, y_real, theta_real)
+                   
+                x_log.append(x_0)
+                y_log.append(y_0)
+                theta_log.append(theta)
+                U_log.append(desire_ctrl)
 
-            x_real_log.append(x_real)
-            y_real_log.append(y_real)
-            theta_real_log.append(theta_real)
-            U_real_log.append(U_real)
+                x_real_log.append(x_real)
+                y_real_log.append(y_real)
+                theta_real_log.append(theta_real)
+                U_real_log.append(U_real)
 
-            if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
-                break
+                if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
+                    # break
+                    print("reach the target", theta_0)
+                    if self.plot_figures == True:
+                        self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                    return [1, theta_log], x_log, y_log
+            except RuntimeError:
+                print("Infesible", theta_0)
+                if self.plot_figures == True:
+                    self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                return [0, theta_log], x_log, y_log
+        print("not reach the target", theta_0)
+        if self.plot_figures == True:
+            self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+        return [0, theta_log], x_log, y_log
         
         # Plot for control signals
+    def plot_results(self, start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log):
         tt = np.arange(0, (len(U_log)), 1)*self.dt
         t = np.arange(0, (len(theta_log)), 1)*self.dt
-        print(len(U_log), U_log)
-        print(len(theta_log))
-        print(len(tt))
-        print(len(t))
+        # print(len(U_log), U_log)
+        # print(len(theta_log))
+        # print(len(tt))
+        # print(len(t))
         plt.plot(tt, U_log, 'r-', label='desired U')
         plt.plot(tt, U_real_log, 'b-', label='U_real', linestyle='--')
         plt.xlabel('time')
@@ -345,9 +358,42 @@ class mpc_ctrl:
             plt.legend()
             plt.show()
 
+    def mutli_init_theta(self):
+        THETA = np.arange(-np.pi, np.pi, 0.1)
+        LOG_theta = []
+        LOG_traj = []
+        ii = 0
+        start_x, start_y = -4, 0
+        for theta in THETA:
+            print("epsidoe", ii)
+            Data_vel, Data_tarj_x, Data_tarj_y = self.main(start_x, start_y, theta)
+            LOG_theta.append(Data_vel)
+            LOG_traj.append([Data_tarj_x, Data_tarj_y])
+            ii += 1
+        
+        # with open('LOG_initial_theta_env9.pkl', 'wb') as f:         # ENV 2 with square control constraints
+        #     pickle.dump(LOG_theta, f)
+
+        # with open('LOG_traj_env_9.pkl', 'wb') as f:
+        #     pickle.dump(LOG_traj, f)
+
+        with open('LOG_initial_theta_env11.pkl', 'wb') as f:         # ENV 2 with longze control constraints
+            pickle.dump(LOG_theta, f)
+
+        with open('LOG_traj_env_11.pkl', 'wb') as f:
+            pickle.dump(LOG_traj, f)
+
+
 
 if __name__ == "__main__":
     target_x, target_y = 0.5, -0.5                # ENV 2 target point
+    start_x, start_y = -4.0, 0.0                # ENV 2 start point
+
     # target_x, target_y = 3.0, -1.0                  # ENV 1 target point
+    # start_x, start_y = -3.0, 0.5                # ENV 1 start point
+
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
-    mpc.main()
+    
+    # theta = -0.5 * np.pi
+    # mpc.main(start_x, start_y, theta)
+    mpc.mutli_init_theta()
