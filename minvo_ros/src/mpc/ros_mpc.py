@@ -8,8 +8,6 @@ import rospy
 from geometry_msgs.msg import PoseStamped
 from autoware_msgs.msg import VehicleCmd
 import matplotlib.pyplot as plt
-
-
 import math
 
 
