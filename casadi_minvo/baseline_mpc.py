@@ -1,6 +1,5 @@
 import numpy as np
 from casadi import *
-import tqdm
 import math
 from B_spline import Bspline, Bspline_basis
 import matplotlib.pyplot as plt
@@ -8,10 +7,18 @@ from unicycle_pd import UnicyclePDController
 
 import pickle
 
+from time import sleep
+import psutil
+from tqdm import tqdm
+
 class mpc_ctrl:
     def __init__(self, target_x, target_y):
         self.dt = 0.05 # time frequency 20Hz
         self.N = 20 # number of control intervals
+        # self.dt = 0.01 # time frequency 20Hz
+        # self.N = 100 # number of control intervals
+        # self.dt = 0.02 # time frequency 20Hz
+        # self.N = 50 # number of control intervals
         self.Epi = 500 # number of episodes
 
         self.target_x = target_x
@@ -56,7 +63,7 @@ class mpc_ctrl:
         self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 
         self.env_numb = 2          # 1: sin wave obstacles, 2: circle obstacles
-        self.plot_figures = False
+        self.plot_figures = True
 
     def distance_circle_obs(self, x, y, circle_obstacles):
         return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
@@ -142,13 +149,13 @@ class mpc_ctrl:
         ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
         ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
         ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
-        opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
-        opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
-        opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
-        opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
+        # opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
+        # opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
+        # opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
+        # opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
 
-        # opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
-        # opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
+        opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
+        opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
 
 
         
@@ -248,48 +255,53 @@ class mpc_ctrl:
         theta_real_log = [theta_real]
         U_real_log = []
 
-        for i in tqdm.tqdm(range(self.Epi)):
+        with tqdm(total=100, desc='cpu%', position=1) as cpubar, tqdm(total=100, desc='ram%', position=0) as rambar:
+            for i in tqdm(range(self.Epi)):
+                # rambar.n=psutil.virtual_memory().percent
+                # cpubar.n=psutil.cpu_percent()
+                # rambar.refresh()
+                # cpubar.refresh()
+                # sleep(0.5)
+                try:
+                    x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
+                    desire_ctrl = U.T[0]
+                    # print(U, desire_ctrl)
+                    # print("desire_ctrl", desire_ctrl)
+                    # print("desire_state", x_0, y_0, theta)
+                    # print("real_state", x_real, y_real, theta_real)
+                    x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
+                    U_real = desire_ctrl
 
-            try:
-                x_0, y_0, theta, U, X = self.solver_mpc(x_real, y_real, theta_real)
-                desire_ctrl = U.T[0]
-                # print(U, desire_ctrl)
-                # print("desire_ctrl", desire_ctrl)
-                # print("desire_state", x_0, y_0, theta)
-                # print("real_state", x_real, y_real, theta_real)
-                x_real, y_real, theta_real = self.dynamic_model(x_real, y_real, theta_real, desire_ctrl[0], desire_ctrl[1])
-                U_real = desire_ctrl
+                    # print("desire_ctrl", desire_ctrl)
+                    # print("desire_state", x_0, y_0, theta)
+                    # print("real_state", x_real, y_real, theta_real)
+                    
+                    x_log.append(x_0)
+                    y_log.append(y_0)
+                    theta_log.append(theta)
+                    U_log.append(desire_ctrl)
 
-                # print("desire_ctrl", desire_ctrl)
-                # print("desire_state", x_0, y_0, theta)
-                # print("real_state", x_real, y_real, theta_real)
-                   
-                x_log.append(x_0)
-                y_log.append(y_0)
-                theta_log.append(theta)
-                U_log.append(desire_ctrl)
+                    x_real_log.append(x_real)
+                    y_real_log.append(y_real)
+                    theta_real_log.append(theta_real)
+                    U_real_log.append(U_real)
 
-                x_real_log.append(x_real)
-                y_real_log.append(y_real)
-                theta_real_log.append(theta_real)
-                U_real_log.append(U_real)
-
-                if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
-                    # break
-                    print("reach the target", theta_0)
+                    if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
+                        # break
+                        print("reach the target", theta_0)
+                        if self.plot_figures == True:
+                            self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                        return [1, theta_log], x_log, y_log
+                except RuntimeError:
+                    print("Infesible", theta_0)
                     if self.plot_figures == True:
                         self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
-                    return [1, theta_log], x_log, y_log
-            except RuntimeError:
-                print("Infesible", theta_0)
-                if self.plot_figures == True:
-                    self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
-                return [0, theta_log], x_log, y_log
-        print("not reach the target", theta_0)
-        if self.plot_figures == True:
-            self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
-        return [0, theta_log], x_log, y_log
-        
+                    return [0, theta_log], x_log, y_log
+            print("not reach the target", theta_0)
+            if self.plot_figures == True:
+                self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+            return [0, theta_log], x_log, y_log
+            
         # Plot for control signals
     def plot_results(self, start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log):
         tt = np.arange(0, (len(U_log)), 1)*self.dt
@@ -358,6 +370,9 @@ class mpc_ctrl:
             plt.legend()
             plt.show()
 
+        with open('single_traj_mpc_50hz.pkl', 'wb') as f:
+            pickle.dump([x_log, y_log], f)
+
     def mutli_init_theta(self):
         THETA = np.arange(-np.pi, np.pi, 0.1)
         LOG_theta = []
@@ -394,6 +409,7 @@ if __name__ == "__main__":
 
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     
-    # theta = -0.5 * np.pi
-    # mpc.main(start_x, start_y, theta)
-    mpc.mutli_init_theta()
+    theta = -0.0 * np.pi
+    mpc.main(start_x, start_y, theta)
+
+    # mpc.mutli_init_theta()
