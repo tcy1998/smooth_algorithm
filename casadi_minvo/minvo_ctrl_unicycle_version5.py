@@ -398,7 +398,7 @@ class mpc_bspline_ctrl:
                         # t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*dt/N
                         t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
                         t2 = np.array(list(range(len(ctrl_points)+curve_degree+1)))*self.dt*self.N/(len(ctrl_points)+curve_degree)
-                        # print(t2)
+                        print(t2)
                         plt.plot(ctrl_points[:,0],ctrl_points[:,1], 'o-', label='Control Points')
                         traj_prime = Bspline_basis()
                         bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
