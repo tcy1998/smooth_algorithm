@@ -9,6 +9,11 @@ from geometry_msgs.msg import PoseStamped
 from autoware_msgs.msg import VehicleCmd
 import matplotlib.pyplot as plt
 import math
+import sys
+
+sys.path.append('/home/yang/ACRL/Polaris_Gem/motion_planning/casadi_minvo')
+from B_spline import Bspline, Bspline_basis
+
 
 #for simulation
 from gazebo_msgs.msg import ModelStates
@@ -22,6 +27,7 @@ from matplotlib import pyplot as plt
 
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
+simulation = 1
 
 class mpc_bspline_ctrl_ros:
     def __init__(self, target_x, target_y):
@@ -39,7 +45,7 @@ class mpc_bspline_ctrl_ros:
 
         self.tau = SX.sym("tau")    # time
         self.u = SX.sym("u", 8)    # control
-        self.x = SX.sym("x", 3)  # state
+        self.x = SX.sym("x", 4)  # state
         self.tau_i = SX.sym("tau_i")   # time interval i
         self.tau_i1 = SX.sym("tau_i1")   # time interval i+1
 
@@ -239,7 +245,7 @@ class mpc_bspline_ctrl_ros:
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(phi[1]), sol.value(U)
 
 
-def main(self):
+    def main(self):
 
         x_log, y_log = [], []
         theta_log = []
@@ -264,6 +270,9 @@ def main(self):
         # print("jump out")
         phi = 0
         x_start, y_start = self.current_pose[0], self.current_pose[1]
+        curve_degree = 3
+        control_pt_num = 4
+        time_knots_num = control_pt_num + curve_degree + 1
 
 
         for i in tqdm.tqdm(range(self.Epi)):
@@ -275,19 +284,29 @@ def main(self):
 
             x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi)
             print(real_x, real_y, phi, theta)
+            ctrl_point_1 = [U[0], U[1]]
+            ctrl_point_2 = [U[2], U[3]]
+            ctrl_point_3 = [U[4], U[5]]
+            ctrl_point_4 = [U[6], U[7]]
+            ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
+            
+            t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
+            traj_prime = Bspline_basis()
+            bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
+            desire_ctrl = bspline_curve_prime[0:5]
 
             # theta = theta_change(theta)
             x_log.append(x_0)
             y_log.append(y_0)
             theta_log.append(theta)
-            U_log.append(U)
+            U_log.append(desire_ctrl)
             phi_log.append(phi)
 
             x_real_log.append(real_x)
             y_real_log.append(real_y)
             theta_real_log.append(real_theta)
 
-            mpc_cmd.ctrl_cmd.linear_velocity = U[0][0]
+            mpc_cmd.ctrl_cmd.linear_velocity = desire_ctrl[0][0]
             mpc_cmd.ctrl_cmd.steering_angle = np.rad2deg(phi)
             # mpc_cmd.ctrl_cmd.linear_velocity = 1
             # mpc_cmd.ctrl_cmd.steering_angle = 1
@@ -295,7 +314,7 @@ def main(self):
 
 
 
-            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < 0.9:
+            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < 1.0:
                 mpc_cmd.ctrl_cmd.linear_velocity = 0
                 self.ctrl_publisher.publish(mpc_cmd)
                 break
@@ -346,6 +365,6 @@ def main(self):
     
 if __name__ == "__main__":
     # target_x, target_y = 0.5, -0.5
-    x_target, y_target = -20, -15
+    x_target, y_target = -37.5, -25
     mpc_ = mpc_bspline_ctrl_ros(target_x=x_target, target_y=y_target)
     mpc_.main()

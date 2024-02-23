@@ -74,7 +74,7 @@ class Bspline_basis():
                          [3, -6, 3, 0],
                          [-1, 3, -3, 1]])/6
       C_t = UU @ M_BS_4 @ cp
-      print(C_t)
+      # print(C_t)
       return C_t
 
    def find_floor(self, array, value):
@@ -112,7 +112,7 @@ class Bspline_basis():
                            [m10, m11, m12, m13],
                            [m20, m21, m22, m23],
                            [m30, m31, m32, m33]])
-      print(M_BS_4)
+      # print(M_BS_4)
 
       # if indicator == 1:
       #    print(M_BS_4, indicator, t)
@@ -158,7 +158,7 @@ def func_2d_test():           # 2D test
    # t2 = np.array([0., 0.14285714, 0.28571429, 0.42857143, 0.57142857, 0.71428571, 0.85714286, 1.])
    t2 = np.array(list(range(len(cv)+k+1)))+2
    # t2 = np.array([1, 2, 3, 4, 5, 6, 7, 8])
-   print(t)
+   # print(t)
 
    ### B-spline
    plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')
@@ -172,7 +172,7 @@ def func_2d_test():           # 2D test
    plt.legend(loc='lower right')
    plt.grid(axis='both')
    plt.show()
-   print(bspline_curve)
+   # print(bspline_curve)
 
    ### B-spline basis
    plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')

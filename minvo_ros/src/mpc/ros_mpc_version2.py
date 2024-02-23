@@ -14,7 +14,7 @@ from gazebo_msgs.srv import GetModelState
 from autoware_msgs.msg import VehicleCmd
 
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
 # import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ simulation = 1 # 0 is off, 1 is on
 class mpc_ctrl:
     def __init__(self):
         self.N = 10 # number of horizons
-        self.Epi = 300 # number of episodes
+        self.Epi = 3000 # number of episodes
         self.current_pose = None
         self.current_oriention = None
         self.dt = 0.1 # time frequency 10Hz
@@ -117,8 +117,10 @@ class mpc_ctrl:
 
         State_xy = X[0:2, :]
         target_xy = [x_target, y_target]
-        LL = 10* sumsqr(phi) + sumsqr(State_xy[-1] - target_xy) + sumsqr(U[-1])
-        L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL # sum of QP terms
+        LL =  sumsqr(State_xy[:,-1] - target_xy) + 10*sumsqr(U[:,-1]) #+  1 * sumsqr(phi)
+        # L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
+        L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
+
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -153,9 +155,9 @@ class mpc_ctrl:
         # opti.subject_to((phi)<=0.25)
         # opti.subject_to((phi)>=-0.25)
 
-        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
-        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
-        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
         # opti.subject_to(pos_y<=self.upper_limit)
         # opti.subject_to(pos_y>=self.lower_limit)
 
@@ -212,7 +214,7 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
-        x_target, y_target = -20, -15
+        x_target, y_target = -10.5, -25
         # x_target, y_target = 0, 0
 
         for i in tqdm.tqdm(range(self.Epi)):
@@ -244,7 +246,7 @@ class mpc_ctrl:
 
 
 
-            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < 0.9:
+            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < self.L**2:
                 mpc_cmd.ctrl_cmd.linear_velocity = 0
                 self.ctrl_publisher.publish(mpc_cmd)
                 break

@@ -1,21 +1,21 @@
 Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
-Change Dir: /home/gem/minvo_motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp
+Change Dir: /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp
 
-Run Build Command(s):/usr/bin/make cmTC_f72f1/fast && /usr/bin/make -f CMakeFiles/cmTC_f72f1.dir/build.make CMakeFiles/cmTC_f72f1.dir/build
-make[1]: Entering directory '/home/gem/minvo_motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_f72f1.dir/src.c.o
-/usr/bin/cc   -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_f72f1.dir/src.c.o   -c /home/gem/minvo_motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_f72f1
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f72f1.dir/link.txt --verbose=1
-/usr/bin/cc  -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_f72f1.dir/src.c.o  -o cmTC_f72f1 
-/usr/bin/ld: CMakeFiles/cmTC_f72f1.dir/src.c.o: in function `main':
+Run Build Command(s):/usr/bin/make cmTC_942c8/fast && /usr/bin/make -f CMakeFiles/cmTC_942c8.dir/build.make CMakeFiles/cmTC_942c8.dir/build
+make[1]: Entering directory '/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_942c8.dir/src.c.o
+/usr/bin/cc   -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_942c8.dir/src.c.o   -c /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_942c8
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_942c8.dir/link.txt --verbose=1
+/usr/bin/cc  -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_942c8.dir/src.c.o  -o cmTC_942c8 
+/usr/bin/ld: CMakeFiles/cmTC_942c8.dir/src.c.o: in function `main':
 src.c:(.text+0x46): undefined reference to `pthread_create'
 /usr/bin/ld: src.c:(.text+0x52): undefined reference to `pthread_detach'
 /usr/bin/ld: src.c:(.text+0x63): undefined reference to `pthread_join'
 collect2: error: ld returned 1 exit status
-make[1]: *** [CMakeFiles/cmTC_f72f1.dir/build.make:87: cmTC_f72f1] Error 1
-make[1]: Leaving directory '/home/gem/minvo_motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
-make: *** [Makefile:121: cmTC_f72f1/fast] Error 2
+make[1]: *** [CMakeFiles/cmTC_942c8.dir/build.make:87: cmTC_942c8] Error 1
+make[1]: Leaving directory '/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
+make: *** [Makefile:121: cmTC_942c8/fast] Error 2
 
 
 Source file was:
@@ -39,20 +39,20 @@ int main(void)
 }
 
 Determining if the function pthread_create exists in the pthreads failed with the following output:
-Change Dir: /home/gem/minvo_motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp
+Change Dir: /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp
 
-Run Build Command(s):/usr/bin/make cmTC_7eb78/fast && /usr/bin/make -f CMakeFiles/cmTC_7eb78.dir/build.make CMakeFiles/cmTC_7eb78.dir/build
-make[1]: Entering directory '/home/gem/minvo_motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_7eb78.dir/CheckFunctionExists.c.o
-/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_7eb78.dir/CheckFunctionExists.c.o   -c /usr/share/cmake-3.16/Modules/CheckFunctionExists.c
-Linking C executable cmTC_7eb78
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7eb78.dir/link.txt --verbose=1
-/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=pthread_create    -rdynamic CMakeFiles/cmTC_7eb78.dir/CheckFunctionExists.c.o  -o cmTC_7eb78  -lpthreads 
+Run Build Command(s):/usr/bin/make cmTC_2e443/fast && /usr/bin/make -f CMakeFiles/cmTC_2e443.dir/build.make CMakeFiles/cmTC_2e443.dir/build
+make[1]: Entering directory '/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_2e443.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_2e443.dir/CheckFunctionExists.c.o   -c /usr/share/cmake-3.16/Modules/CheckFunctionExists.c
+Linking C executable cmTC_2e443
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2e443.dir/link.txt --verbose=1
+/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=pthread_create    -rdynamic CMakeFiles/cmTC_2e443.dir/CheckFunctionExists.c.o  -o cmTC_2e443  -lpthreads 
 /usr/bin/ld: cannot find -lpthreads
 collect2: error: ld returned 1 exit status
-make[1]: *** [CMakeFiles/cmTC_7eb78.dir/build.make:87: cmTC_7eb78] Error 1
-make[1]: Leaving directory '/home/gem/minvo_motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
-make: *** [Makefile:121: cmTC_7eb78/fast] Error 2
+make[1]: *** [CMakeFiles/cmTC_2e443.dir/build.make:87: cmTC_2e443] Error 1
+make[1]: Leaving directory '/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/CMakeFiles/CMakeTmp'
+make: *** [Makefile:121: cmTC_2e443/fast] Error 2
 
 
 
