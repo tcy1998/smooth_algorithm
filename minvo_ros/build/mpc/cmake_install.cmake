@@ -1,8 +1,8 @@
-# Install script for directory: /home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/src/mpc
+# Install script for directory: /home/gem/minvo_motion_planning/minvo_ros/src/mpc
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/install")
+  set(CMAKE_INSTALL_PREFIX "/home/gem/minvo_motion_planning/minvo_ros/install")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -38,17 +38,17 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/mpc/catkin_generated/installspace/mpc.pc")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/gem/minvo_motion_planning/minvo_ros/build/mpc/catkin_generated/installspace/mpc.pc")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/mpc/cmake" TYPE FILE FILES
-    "/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/mpc/catkin_generated/installspace/mpcConfig.cmake"
-    "/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build/mpc/catkin_generated/installspace/mpcConfig-version.cmake"
+    "/home/gem/minvo_motion_planning/minvo_ros/build/mpc/catkin_generated/installspace/mpcConfig.cmake"
+    "/home/gem/minvo_motion_planning/minvo_ros/build/mpc/catkin_generated/installspace/mpcConfig-version.cmake"
     )
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/mpc" TYPE FILE FILES "/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/src/mpc/package.xml")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/mpc" TYPE FILE FILES "/home/gem/minvo_motion_planning/minvo_ros/src/mpc/package.xml")
 endif()
 

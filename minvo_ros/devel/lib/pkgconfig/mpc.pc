@@ -1,4 +1,4 @@
-prefix=/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/devel
+prefix=/home/gem/minvo_motion_planning/minvo_ros/devel
 
 Name: mpc
 Description: Description of mpc

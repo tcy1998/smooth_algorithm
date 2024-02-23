@@ -7,7 +7,8 @@
 # new environment variables
 
 # modified environment variables
-export LD_LIBRARY_PATH='/opt/ros/noetic/lib'
-export PKG_CONFIG_PATH='/opt/ros/noetic/lib/pkgconfig'
-export PWD='/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/build'
-export ROS_PACKAGE_PATH='/home/yang/ACRL/Polaris_Gem/motion_planning/minvo_ros/src:/opt/ros/noetic/share'
+export LD_LIBRARY_PATH='/opt/ros/noetic/share/euslisp/jskeus/eus//Linux64/lib:/opt/ros/noetic/lib:/opt/ros/noetic/lib/x86_64-linux-gnu:/opt/ros/noetic/share/euslisp/jskeus/eus//Linux64/lib:/usr/local/cuda/lib64:/opt/ros/noetic/share/euslisp/jskeus/eus//Linux64/lib'
+export PATH='/opt/ros/noetic/share/euslisp/jskeus/eus//Linux64/bin:/opt/ros/noetic/bin:/opt/ros/noetic/share/euslisp/jskeus/eus//Linux64/bin:/usr/local/cuda/bin:/opt/ros/noetic/share/euslisp/jskeus/eus//Linux64/bin:/home/gem/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin'
+export PKG_CONFIG_PATH='/opt/ros/noetic/lib/pkgconfig:/opt/ros/noetic/lib/x86_64-linux-gnu/pkgconfig'
+export PWD='/home/gem/minvo_motion_planning/minvo_ros/build'
+export ROS_PACKAGE_PATH='/home/gem/minvo_motion_planning/minvo_ros/src:/opt/ros/noetic/share'

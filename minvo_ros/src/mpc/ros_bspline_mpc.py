@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import math
 import sys
 
-sys.path.append('/home/yang/ACRL/Polaris_Gem/motion_planning/casadi_minvo')
+sys.path.append('/home/gem/minvo_motion_planning/casadi_minvo')
 from B_spline import Bspline, Bspline_basis
 
 
@@ -27,7 +27,7 @@ from matplotlib import pyplot as plt
 
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
-simulation = 1
+simulation = 0
 
 class mpc_bspline_ctrl_ros:
     def __init__(self, target_x, target_y):
@@ -167,7 +167,8 @@ class mpc_bspline_ctrl_ros:
         target_xy = [self.target_x, self.target_y]
         LL =  sumsqr(State_xy[:,-1] - target_xy) + 10*sumsqr(U[:,-1]) #+  1 * sumsqr(phi)
         # L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
-        L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
+        # L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
+        L = 400*sumsqr(State_xy[0] - x_target) + 40*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
 
 
         # ---- objective          ---------
@@ -203,9 +204,9 @@ class mpc_bspline_ctrl_ros:
         # opti.subject_to((phi)<=0.25)
         # opti.subject_to((phi)>=-0.25)
 
-        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
-        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
-        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
         # opti.subject_to(pos_y<=self.upper_limit)
         # opti.subject_to(pos_y>=self.lower_limit)
 
@@ -367,6 +368,7 @@ class mpc_bspline_ctrl_ros:
     
 if __name__ == "__main__":
     # target_x, target_y = 0.5, -0.5
-    x_target, y_target = -37.5, -25
+    # x_target, y_target = -37.5, -25
+    x_target, y_target = 0, 40
     mpc_ = mpc_bspline_ctrl_ros(target_x=x_target, target_y=y_target)
     mpc_.main()

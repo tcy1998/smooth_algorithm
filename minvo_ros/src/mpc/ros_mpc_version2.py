@@ -25,7 +25,7 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
 
 global simulation
-simulation = 1 # 0 is off, 1 is on
+simulation = 0 # 0 is off, 1 is on
 
 class mpc_ctrl:
     def __init__(self):
@@ -214,8 +214,8 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
-        x_target, y_target = -10.5, -25
-        # x_target, y_target = 0, 0
+        # x_target, y_target = -10.5, -25
+        x_target, y_target = 0, 20
 
         for i in tqdm.tqdm(range(self.Epi)):
             

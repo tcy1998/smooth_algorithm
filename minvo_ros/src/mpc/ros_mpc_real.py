@@ -119,7 +119,7 @@ class mpc_ctrl:
         target_xy = [x_target, y_target]
         LL =  sumsqr(State_xy[:,-1] - target_xy) + 10*sumsqr(U[:,-1]) #+  1 * sumsqr(phi)
         # L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
-        L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
+        L = 400*sumsqr(State_xy[0] - x_target) + 40*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -153,7 +153,7 @@ class mpc_ctrl:
         opti.subject_to((phi)<=0.3)
         opti.subject_to((phi)>=-0.3)
 
-        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
         # opti.subject_to(pos_y<=self.upper_limit)
@@ -212,7 +212,7 @@ class mpc_ctrl:
         # print("jump out")
         phi = 0
 
-        x_target, y_target = 1, 10
+        x_target, y_target = 0, 40
 
         for i in tqdm.tqdm(range(self.Epi)):
             
