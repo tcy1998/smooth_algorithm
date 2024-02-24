@@ -22,7 +22,7 @@ class Bspline():
    def bspline(self, time_knots, c, k):         # time_knots: knot vector, c: control points, k: degree
       n = len(time_knots) - k - 1         
       assert (n >= k+1) and (len(c) >= n)
-      x = np.linspace(0, max(time_knots), 100)
+      x = np.linspace(0, max(time_knots)-0.5, 100)
       # x = np.linspace(k, len(c), 100)
       trajec = np.zeros((len(x), len(c[0])))
       for m in range(len(x)):

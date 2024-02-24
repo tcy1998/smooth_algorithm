@@ -1,4 +1,4 @@
-syms t tau tau_i tau_i1 t0
+syms T tau tau_i tau_i1 t0
 syms x y theta
 syms v1 v2 v3 v4 w1 w2 w3 w4
 
@@ -14,7 +14,8 @@ vecQ = [v1; v2; v3; v4; w1; w2; w3; w4];
 x_dot =  kron(gM, G)*vecQ;
 
 gmgm = kron(gM, gM);
-int_gmgm = int(gmgm, tau, 0, t);
+int_gmgm = int(gmgm, tau, 0, T);
+int_gmgm2 = int(gmgm, tau, tau_i, tau_i1);
 
 
 % 
