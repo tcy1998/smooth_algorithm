@@ -171,6 +171,7 @@ class mpc_bspline_ctrl:
         Last_term = X[:,-1]
         LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) + sumsqr(Last_term[2])
         L = 100*sumsqr(State_xy) + 100 * LL # sum of QP terms
+        L += self.cost_function_ctrlpoints(time_interval[k], cp, 0, 1)
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -203,7 +204,7 @@ class mpc_bspline_ctrl:
             opti.subject_to(X[1,k+1]==y_next) # close the gaps
             opti.subject_to(X[2,k+1]==theta_next) # close the gaps
 
-            L += self.cost_function_ctrlpoints(time_interval[k], cp, timei, timei1)
+            # L += self.cost_function_ctrlpoints(time_interval[k], cp, timei, timei1)
 
 
        # ---- path constraints 1 -----------
@@ -526,10 +527,10 @@ class mpc_bspline_ctrl:
             LOG_traj.append([Data_tarj_x, Data_tarj_y])
             ii += 1
         
-        with open('LOG_initial_theta_env14.pkl', 'wb') as f:
+        with open('LOG_initial_theta_env15.pkl', 'wb') as f:
             pickle.dump(LOG_theta, f)
 
-        with open('LOG_traj_env_14.pkl', 'wb') as f:
+        with open('LOG_traj_env_15.pkl', 'wb') as f:
             pickle.dump(LOG_traj, f)
 
 
