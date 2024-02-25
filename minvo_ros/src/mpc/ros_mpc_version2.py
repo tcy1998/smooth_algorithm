@@ -22,10 +22,10 @@ from matplotlib import pyplot as plt
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 
-import math
+import math, csv
 
 global simulation
-simulation = 0 # 0 is off, 1 is on
+simulation = 1 # 0 is off, 1 is on
 
 class mpc_ctrl:
     def __init__(self):
@@ -237,6 +237,12 @@ class mpc_ctrl:
             x_real_log.append(real_x)
             y_real_log.append(real_y)
             theta_real_log.append(real_theta)
+
+            rows = zip(x_real_log, y_real_log, theta_real_log)
+            with open("path.csv", "w") as f:
+                writer = csv.writer(f)
+                for row in rows:
+                    writer.writerow(row)
 
             mpc_cmd.ctrl_cmd.linear_velocity = U[0][0]
             mpc_cmd.ctrl_cmd.steering_angle = np.rad2deg(phi)
