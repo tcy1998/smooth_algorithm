@@ -158,7 +158,7 @@ def func_2d_test():           # 2D test
    # t2 = np.array([0., 0.14285714, 0.28571429, 0.42857143, 0.57142857, 0.71428571, 0.85714286, 1.])
    t2 = np.array(list(range(len(cv)+k+1)))+2
    # t2 = np.array([1, 2, 3, 4, 5, 6, 7, 8])
-   # print(t)
+   print(t)
 
    ### B-spline
    plt.plot(cv[:,0],cv[:,1], 'o-', label='Control Points')

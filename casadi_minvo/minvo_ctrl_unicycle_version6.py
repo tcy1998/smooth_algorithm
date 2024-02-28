@@ -85,7 +85,9 @@ class mpc_bspline_ctrl:
         self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 
         self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
-        self.plot_figures = False
+        self.plot_figures = True
+
+        self.optimizer_time = []
         # def distance_circle_obs(self, x, y, circle_obstacles):
         #     return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
     def distance_circle_obs(self, x, y, circle_obstacles):
@@ -114,7 +116,7 @@ class mpc_bspline_ctrl:
             index += 1
         return index - 1
     
-    def coefficients(self, tau, tau_i, tau_i1):
+    def coefficients(self, tau_i, tau_i1):
         gm11 = tau_i1/7 - tau_i/7
         gm21 = tau_i1/14 - tau_i/14
         gm31 = tau_i1/35 - tau_i/35
@@ -134,8 +136,8 @@ class mpc_bspline_ctrl:
 
         return [gm11, gm21, gm31, gm41, gm12, gm22, gm32, gm42, gm13, gm23, gm33, gm43, gm14, gm24, gm34, gm44]
     
-    def cost_function_ctrlpoints(self, tau, cp, tau_i, tau_i1):
-        gm = self.coefficients(tau, tau_i, tau_i1)
+    def cost_function_ctrlpoints(self, cp, tau_i, tau_i1):
+        gm = self.coefficients(tau_i, tau_i1)
         cost = 0
         for i in range(4):
             for j in range(4):
@@ -170,8 +172,8 @@ class mpc_bspline_ctrl:
         State_xy = X[0:2, :] - [self.target_x, self.target_y]
         Last_term = X[:,-1]
         LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) + sumsqr(Last_term[2])
-        L = 100*sumsqr(State_xy) + 100 * LL # sum of QP terms
-        L += self.cost_function_ctrlpoints(time_interval[k], cp, 0, 1)
+        L = 10*sumsqr(State_xy) + 10 * LL # sum of QP terms
+        L += 1 * self.cost_function_ctrlpoints(cp, 0, 1)
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -267,12 +269,15 @@ class mpc_bspline_ctrl:
 
 
         # ---- solve NLP              ------
-        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level': 0, 'print_time': 1, 'ipopt.sb': 'yes'}
         
         opti.solver("ipopt", opts) # set numerical backend
         # opti.solver("ipopt") # set numerical backend
         sol = opti.solve()   # actual solve
         opti.debug.value(U)
+        casadi_time = sol.stats()['t_wall_total']
+        print("time", casadi_time)
+        self.optimizer_time.append(casadi_time)
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
     
@@ -463,6 +468,10 @@ class mpc_bspline_ctrl:
         t = np.arange(0, len(x_log), 1)
         plt.plot(t, theta_log, 'r-')
         plt.show()
+        print(self.optimizer_time)
+
+        print("x_log", x_log)
+        print("y_log", y_log)
 
         if self.env_numb == 1:
             plt.plot(x_log, y_log, 'r-', label='desired path')
@@ -527,10 +536,10 @@ class mpc_bspline_ctrl:
             LOG_traj.append([Data_tarj_x, Data_tarj_y])
             ii += 1
         
-        with open('LOG_initial_theta_env15.pkl', 'wb') as f:
+        with open('LOG_initial_theta_env21.pkl', 'wb') as f:
             pickle.dump(LOG_theta, f)
 
-        with open('LOG_traj_env_15.pkl', 'wb') as f:
+        with open('LOG_traj_env_21.pkl', 'wb') as f:
             pickle.dump(LOG_traj, f)
 
 
@@ -538,11 +547,11 @@ if __name__ == "__main__":
     # try:
     target_x, target_y = 0.5, -0.5
     mpc_bspline = mpc_bspline_ctrl(target_x=target_x, target_y=target_y)
-    start_x, start_y = -4.0, 0.0
+    start_x, start_y = -4, 0
 
 
-    # theta = 0.0
-    # mpc_bspline.main(start_x, start_y, theta)
+    theta = 1.4
+    mpc_bspline.main(start_x, start_y, theta)
 
-    mpc_bspline.mutli_init_theta()
+    # mpc_bspline.mutli_init_theta()
 

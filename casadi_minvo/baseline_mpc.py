@@ -13,12 +13,12 @@ from tqdm import tqdm
 
 class mpc_ctrl:
     def __init__(self, target_x, target_y):
-        self.dt = 0.05 # time frequency 20Hz
-        self.N = 20 # number of control intervals
-        # self.dt = 0.01 # time frequency 20Hz
-        # self.N = 100 # number of control intervals
-        # self.dt = 0.02 # time frequency 20Hz
-        # self.N = 50 # number of control intervals
+        # self.dt = 0.05 # time frequency 20Hz
+        # self.N = 20 # number of control intervals
+        # self.dt = 0.1 # time frequency 10Hz
+        # self.N = 10 # number of control intervals
+        self.dt = 0.02 # time frequency 20Hz
+        self.N = 50 # number of control intervals
         self.Epi = 500 # number of episodes
 
         self.target_x = target_x
@@ -64,6 +64,8 @@ class mpc_ctrl:
 
         self.env_numb = 2          # 1: sin wave obstacles, 2: circle obstacles
         self.plot_figures = True
+
+        self.casadi_time = []
 
     def distance_circle_obs(self, x, y, circle_obstacles):
         return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
@@ -145,10 +147,10 @@ class mpc_ctrl:
         omega_limit = 1.0
         constraint_k = omega_limit/v_limit
 
-        ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
-        ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
-        ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
-        ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
+        # ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
+        # ctrl_constraint_rightlower = lambda v: constraint_k*v - omega_limit         # omega >= constraint_k*v - omega_limit
+        # ctrl_constraint_leftlower = lambda v: -constraint_k*v - omega_limit         # omega >= -constraint_k*v - omega_limit
+        # ctrl_constraint_rightupper = lambda v: -constraint_k*v + omega_limit        # omega <= -constraint_k*v + omega_limit
         # opti.subject_to(ctrl_constraint_rightlower(U[0,:])<=U[1,:])
         # opti.subject_to(ctrl_constraint_leftupper(U[0,:])>=U[1,:])
         # opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
@@ -166,13 +168,14 @@ class mpc_ctrl:
 
 
         # ---- solve NLP              ------
-        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level': 0, 'print_time': 1, 'ipopt.sb': 'yes'}
         
         opti.solver("ipopt", opts) # set numerical backend
         # opti.solver("ipopt") # set numerical backend
         
 
         sol = opti.solve()   # actual solve
+        self.casadi_time.append(sol.stats()['t_wall_total'])
 
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
@@ -310,6 +313,9 @@ class mpc_ctrl:
         # print(len(theta_log))
         # print(len(tt))
         # print(len(t))
+        print(x_log)
+        print(y_log)
+        print(self.casadi_time)
         plt.plot(tt, U_log, 'r-', label='desired U')
         plt.plot(tt, U_real_log, 'b-', label='U_real', linestyle='--')
         plt.xlabel('time')
@@ -392,10 +398,10 @@ class mpc_ctrl:
         # with open('LOG_traj_env_9.pkl', 'wb') as f:
         #     pickle.dump(LOG_traj, f)
 
-        with open('LOG_initial_theta_env11.pkl', 'wb') as f:         # ENV 2 with longze control constraints
+        with open('LOG_initial_theta_env17_mpc_sq.pkl', 'wb') as f:         # ENV 2 with longze control constraints
             pickle.dump(LOG_theta, f)
 
-        with open('LOG_traj_env_11.pkl', 'wb') as f:
+        with open('LOG_traj_env_17_mpc_sq.pkl', 'wb') as f:
             pickle.dump(LOG_traj, f)
 
 
@@ -403,13 +409,13 @@ class mpc_ctrl:
 if __name__ == "__main__":
     target_x, target_y = 0.5, -0.5                # ENV 2 target point
     start_x, start_y = -4.0, 0.0                # ENV 2 start point
+    # start_x, start_y = 1, -0.8
 
-    # target_x, target_y = 3.0, -1.0                  # ENV 1 target point
-    # start_x, start_y = -3.0, 0.5                # ENV 1 start point
 
+    theta = 1.4
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     
-    theta = -0.0 * np.pi
+    # theta = -0.0 * np.pi
     mpc.main(start_x, start_y, theta)
 
     # mpc.mutli_init_theta()
