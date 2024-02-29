@@ -20,12 +20,16 @@ from matplotlib import pyplot as plt
 # import matplotlib.pyplot as plt
 
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from nav_msgs.msg import Path
+import std_msgs.msg
+
 
 
 import math, csv
 
-global simulation
+global simulation, path
 simulation = 1 # 0 is off, 1 is on
+path = Path()
 
 class mpc_ctrl:
     def __init__(self):
@@ -63,12 +67,20 @@ class mpc_ctrl:
         self.constraint_k = self.omega_limit/self.v_limit
 
     def pose_callback(self, data):
-        global simulation
+        global simulation, path
         # self.current_pose = [pose.position.x, pose.position.y, pose.position.z]
         # print(self.current_pose, self.current_oriention)
         if simulation == 0:
             self.current_pose = [data.pose.position.x, data.pose.position.y, data.pose.position.z]        
             self.current_oriention = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
+            path.header.seq += 1
+            path.header.stamp = rospy.Time.now()
+            path.header.frame_id = "world"
+            pose = PoseStamped()
+            pose.header = path.header
+            pose.pose = data.pose
+            path.poses.append(pose)
+            self.path_pub.publish(path)
         elif simulation == 1:
             # rospy.wait_for_service('/gazebo/get_model_state')
             # service_response = rospy.ServiceProxy('/gazebo/get_model_states', GetModelStates)
@@ -78,6 +90,21 @@ class mpc_ctrl:
 
             self.current_pose = [data.position.x, data.position.y, data.position.z]        
             self.current_oriention = [data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w]
+
+            # path.header = data.header
+            # path.header = std_msgs.msg.Header()
+            path.header.seq += 1
+            path.header.stamp = rospy.Time.now()
+            path.header.frame_id = "world"
+            pose = PoseStamped()
+            pose.header = path.header
+            x = data.position.x
+            y = data.position.y
+            data.position.x = -y-22
+            data.position.y = x + 44
+            pose.pose = data
+            path.poses.append(pose)
+            self.path_pub.publish(path)
 
     def subsribe_pose(self):
         global simulation
@@ -203,6 +230,8 @@ class mpc_ctrl:
 
         self.subsribe_pose()
         self.publish_ctrl()
+        self.path_pub = rospy.Publisher('/path', Path, queue_size=10)
+
         # rospy.spin()
         rospy.sleep(2)
 
@@ -213,9 +242,10 @@ class mpc_ctrl:
         # #     rospy.spin()
         # print("jump out")
         phi = 0
+        path = Path()
 
-        # x_target, y_target = -10.5, -25
-        x_target, y_target = 0, 20
+        x_target, y_target = -10.5, -25
+        # x_target, y_target = 0, 20
 
         for i in tqdm.tqdm(range(self.Epi)):
             
@@ -237,6 +267,8 @@ class mpc_ctrl:
             x_real_log.append(real_x)
             y_real_log.append(real_y)
             theta_real_log.append(real_theta)
+
+
 
             rows = zip(x_real_log, y_real_log, theta_real_log)
             with open("path.csv", "w") as f:
