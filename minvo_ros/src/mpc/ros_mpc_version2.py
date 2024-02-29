@@ -28,7 +28,7 @@ import std_msgs.msg
 import math, csv
 
 global simulation, path
-simulation = 1 # 0 is off, 1 is on
+simulation = 0 # 0 is off, 1 is on
 path = Path()
 
 class mpc_ctrl:
@@ -244,8 +244,8 @@ class mpc_ctrl:
         phi = 0
         path = Path()
 
-        x_target, y_target = -10.5, -25
-        # x_target, y_target = 0, 20
+        # x_target, y_target = -10.5, -25
+        x_target, y_target = 0, 20
 
         for i in tqdm.tqdm(range(self.Epi)):
             
