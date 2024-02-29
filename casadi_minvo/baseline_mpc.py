@@ -86,7 +86,7 @@ class mpc_ctrl:
         Last_term = X[:,-1]
         LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) + sumsqr(Last_term[2])
 
-        L = 100*sumsqr(State_xy) + sumsqr(U) + 100*LL # sum of QP terms
+        L = 10*sumsqr(State_xy) + sumsqr(U) + 10*LL # sum of QP terms
 
 
         # ---- objective          ---------
@@ -144,7 +144,7 @@ class mpc_ctrl:
 
         # ---- control constraints ----------
         v_limit = 1.0
-        omega_limit = 1.0
+        omega_limit = 3.0
         constraint_k = omega_limit/v_limit
 
         # ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
@@ -168,14 +168,14 @@ class mpc_ctrl:
 
 
         # ---- solve NLP              ------
-        opts = {'ipopt.print_level': 0, 'print_time': 1, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
         
         opti.solver("ipopt", opts) # set numerical backend
         # opti.solver("ipopt") # set numerical backend
         
 
         sol = opti.solve()   # actual solve
-        self.casadi_time.append(sol.stats()['t_wall_total'])
+        # self.casadi_time.append(sol.stats()['t_wall_total'])
 
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
@@ -313,9 +313,9 @@ class mpc_ctrl:
         # print(len(theta_log))
         # print(len(tt))
         # print(len(t))
-        print(x_log)
-        print(y_log)
-        print(self.casadi_time)
+        # print(x_log)
+        # print(y_log)
+        # print(self.casadi_time)
         plt.plot(tt, U_log, 'r-', label='desired U')
         plt.plot(tt, U_real_log, 'b-', label='U_real', linestyle='--')
         plt.xlabel('time')
@@ -380,6 +380,7 @@ class mpc_ctrl:
             pickle.dump([x_log, y_log], f)
 
     def mutli_init_theta(self):
+        self.plot_figures = False
         THETA = np.arange(-np.pi, np.pi, 0.1)
         LOG_theta = []
         LOG_traj = []
@@ -398,10 +399,10 @@ class mpc_ctrl:
         # with open('LOG_traj_env_9.pkl', 'wb') as f:
         #     pickle.dump(LOG_traj, f)
 
-        with open('LOG_initial_theta_env17_mpc_sq.pkl', 'wb') as f:         # ENV 2 with longze control constraints
+        with open('LOG_initial_theta_env26_mpc_sq.pkl', 'wb') as f:         # ENV 2 with longze control constraints
             pickle.dump(LOG_theta, f)
 
-        with open('LOG_traj_env_17_mpc_sq.pkl', 'wb') as f:
+        with open('LOG_traj_env_26_mpc_sq.pkl', 'wb') as f:
             pickle.dump(LOG_traj, f)
 
 
@@ -412,10 +413,10 @@ if __name__ == "__main__":
     # start_x, start_y = 1, -0.8
 
 
-    theta = 1.4
+    # theta = 1.4
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     
     # theta = -0.0 * np.pi
-    mpc.main(start_x, start_y, theta)
+    # mpc.main(start_x, start_y, theta)
 
-    # mpc.mutli_init_theta()
+    mpc.mutli_init_theta()

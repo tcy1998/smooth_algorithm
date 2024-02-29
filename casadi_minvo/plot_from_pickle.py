@@ -87,22 +87,22 @@ plt.plot(x, len(x)*[lower_limit], 'b-', label='lower limit')
 
 
 ### Load Trajectory Data ###
-with open('LOG_traj_env_21.pkl', 'rb') as f:
-    LOG_traj = pickle.load(f)
-print(len(LOG_traj))
-
-### Print Angles ###
-with open('LOG_initial_theta_env21.pkl', 'rb') as f:
-    LOG_theta = pickle.load(f)
-
-### Load Trajectory Data ###
-# with open('LOG_traj_env_17_mpc_sq.pkl', 'rb') as f:
+# with open('LOG_traj_env_25.pkl', 'rb') as f:
 #     LOG_traj = pickle.load(f)
 # print(len(LOG_traj))
 
 # ### Print Angles ###
-# with open('LOG_initial_theta_env17_mpc_sq.pkl', 'rb') as f:
+# with open('LOG_initial_theta_env25.pkl', 'rb') as f:
 #     LOG_theta = pickle.load(f)
+
+# ### Load Trajectory Data ###
+with open('LOG_traj_env_26_mpc_sq.pkl', 'rb') as f:
+    LOG_traj = pickle.load(f)
+print(len(LOG_traj))
+
+### Print Angles ###
+with open('LOG_initial_theta_env26_mpc_sq.pkl', 'rb') as f:
+    LOG_theta = pickle.load(f)
 
 ### Print Trajectory ###
 for i in range(len(LOG_traj)):
