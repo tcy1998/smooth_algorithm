@@ -67,8 +67,8 @@ plt.gcf().gca().add_artist(target_circle6)
 plt.axis([-5.0, 1.5, -2.4, 2.4])
 # plt.axis('equal')
 x = np.arange(start[0]-1,4,0.01)
-plt.plot(x, len(x)*[upper_limit], 'g-', label='upper limit')
-plt.plot(x, len(x)*[lower_limit], 'b-', label='lower limit')
+plt.plot(x, len(x)*[upper_limit], 'black', label='upper limit', linewidth=1.2)
+plt.plot(x, len(x)*[lower_limit], 'black', label='lower limit', linewidth=1.2)
 
 
 ### Print Test Set Box ###
@@ -84,25 +84,44 @@ plt.plot(x, len(x)*[lower_limit], 'b-', label='lower limit')
 # plt.plot(x1, yy, color='grey', linewidth=2.2)
 # plt.plot(x2, yy, color='grey', linewidth=2.2)
 
-
-
-### Load Trajectory Data ###
-# with open('LOG_traj_env_25.pkl', 'rb') as f:
-#     LOG_traj = pickle.load(f)
-# print(len(LOG_traj))
-
-# ### Print Angles ###
-# with open('LOG_initial_theta_env25.pkl', 'rb') as f:
-#     LOG_theta = pickle.load(f)
-
 # ### Load Trajectory Data ###
-with open('LOG_traj_env_26_mpc_sq.pkl', 'rb') as f:
+with open('LOG_traj_env_15.pkl', 'rb') as f:
     LOG_traj = pickle.load(f)
 print(len(LOG_traj))
 
 ### Print Angles ###
-with open('LOG_initial_theta_env26_mpc_sq.pkl', 'rb') as f:
+with open('LOG_initial_theta_env15.pkl', 'rb') as f:
     LOG_theta = pickle.load(f)
+
+
+### Load Trajectory Data ###
+# with open('LOG_traj_env_17_mpc_sq.pkl', 'rb') as f:
+#     LOG_traj = pickle.load(f)
+# print(len(LOG_traj))
+
+# ### Print Angles ###
+# with open('LOG_initial_theta_env17_mpc_sq.pkl', 'rb') as f:
+#     LOG_theta = pickle.load(f)
+
+
+
+# ### Load Trajectory Data ###
+# with open('LOG_traj_env_22.pkl', 'rb') as f:
+#     LOG_traj = pickle.load(f)
+# print(len(LOG_traj))
+
+# ### Print Angles ###
+# with open('LOG_initial_theta_env22.pkl', 'rb') as f:
+#     LOG_theta = pickle.load(f)
+
+# ### Load Trajectory Data ###
+# with open('LOG_traj_env_23_mpc_sq.pkl', 'rb') as f:
+#     LOG_traj = pickle.load(f)
+# print(len(LOG_traj))
+
+# ### Print Angles ###
+# with open('LOG_initial_theta_env23_mpc_sq.pkl', 'rb') as f:
+#     LOG_theta = pickle.load(f)
 
 ### Print Trajectory ###
 for i in range(len(LOG_traj)):
@@ -131,8 +150,10 @@ for i in range(len(LOG_theta)):
         t_list = np.arange(0, len(LOG_traj[i][0]), 1)*0.05
         plt.plot(t_list, LOG_theta[i][1], 'r-')
 
+plt.axis([0, 10, -4, 4])
 plt.xlabel('time [s]')
 plt.ylabel('theta [rad]')
+plt.grid()
 plt.show()
 
 # ### Print Obstacles ###
