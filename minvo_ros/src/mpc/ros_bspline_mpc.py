@@ -26,8 +26,12 @@ matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from nav_msgs.msg import Path
+import std_msgs.msg
 
 simulation = 0
+reference_path_mpc = Path()
+real_path_bspline = Path()
 
 class mpc_bspline_ctrl_ros:
     def __init__(self, target_x, target_y):
@@ -97,12 +101,20 @@ class mpc_bspline_ctrl_ros:
         self.omega_limit = 0.5
 
     def pose_callback(self, data):
-        global simulation
+        global simulation, real_path_bspline
         # self.current_pose = [pose.position.x, pose.position.y, pose.position.z]
         # print(self.current_pose, self.current_oriention)
         if simulation == 0:
             self.current_pose = [data.pose.position.x, data.pose.position.y, data.pose.position.z]        
             self.current_oriention = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
+            real_path_bspline.header.seq += 1
+            real_path_bspline.header.stamp = rospy.Time.now()
+            real_path_bspline.header.frame_id = "world"
+            pose = PoseStamped()
+            pose.header = real_path_bspline.header
+            pose.pose = data.pose
+            real_path_bspline.poses.append(pose)
+            self.real_path_bspline_pub.publish(real_path_bspline)
         elif simulation == 1:
             # rospy.wait_for_service('/gazebo/get_model_state')
             # service_response = rospy.ServiceProxy('/gazebo/get_model_states', GetModelStates)
@@ -143,6 +155,35 @@ class mpc_bspline_ctrl_ros:
             index += 1
         return index - 1
 
+    def coefficients(self, tau_i, tau_i1):
+        gm11 = tau_i1/7 - tau_i/7
+        gm21 = tau_i1/14 - tau_i/14
+        gm31 = tau_i1/35 - tau_i/35
+        gm41 = tau_i1/140 - tau_i/140
+        gm12 = gm21
+        gm22 = (3*tau_i1)/35 - (3*tau_i)/35
+        gm32 = (9*tau_i1)/140 - (9*tau_i)/140
+        gm42 = tau_i1/35 - tau_i/35
+        gm13 = gm31
+        gm23 = gm32
+        gm33 = (3*tau_i1)/35 - (3*tau_i)/35
+        gm43 = tau_i1/14 - tau_i/14
+        gm14 = gm41
+        gm24 = gm42
+        gm34 = gm43
+        gm44 = tau_i1/7 - tau_i/7
+
+        return [gm11, gm21, gm31, gm41, gm12, gm22, gm32, gm42, gm13, gm23, gm33, gm43, gm14, gm24, gm34, gm44]
+    
+
+    def cost_function_ctrlpoints(self, cp, tau_i, tau_i1):
+        gm = self.coefficients(tau_i, tau_i1)
+        cost = 0
+        for i in range(4):
+            for j in range(4):
+                cost +=  gm[i*4+j] * cp[j] @ cp[i].T 
+        return cost
+
     def solver_mpc(self, x_init, y_init, theta_init, phi_init):
         # ---- decision variables ---------
         opti = Opti() # Optimization problem
@@ -154,10 +195,11 @@ class mpc_bspline_ctrl_ros:
         phi = X[3,:]
 
         U = opti.variable(8, 1)   # control points (8*1)
-        # ctrl_point_1 = [U[0], U[1]]
-        # ctrl_point_2 = [U[2], U[3]]
-        # ctrl_point_3 = [U[4], U[5]]
-        # ctrl_point_4 = [U[6], U[7]]
+        ctrl_point_1 = [U[0], U[1]]
+        ctrl_point_2 = [U[2], U[3]]
+        ctrl_point_3 = [U[4], U[5]]
+        ctrl_point_4 = [U[6], U[7]]
+        cp = [ctrl_point_1, ctrl_point_2,ctrl_point_3, ctrl_point_4]
 
         # Uniform B spline time knots
         t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
@@ -168,8 +210,8 @@ class mpc_bspline_ctrl_ros:
         LL =  sumsqr(State_xy[:,-1] - target_xy) + 10*sumsqr(U[:,-1]) #+  1 * sumsqr(phi)
         # L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
         # L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
-        L = 400*sumsqr(State_xy[0] - x_target) + 40*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
-
+        L = 400*sumsqr(State_xy[0] - x_target) + 40*sumsqr(State_xy[1] - y_target) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
+        L += 5 * self.cost_function_ctrlpoints(cp, 0, 1)
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
@@ -262,6 +304,8 @@ class mpc_bspline_ctrl_ros:
 
         self.subsribe_pose()
         self.publish_ctrl()
+        self.real_path_bspline_pub = rospy.Publisher('/real_path_bspline', Path, queue_size=10)
+
         # rospy.spin()
         rospy.sleep(2)
 
