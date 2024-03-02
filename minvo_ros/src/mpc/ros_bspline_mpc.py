@@ -90,7 +90,7 @@ class mpc_bspline_ctrl_ros:
         self.poly_degree = 3
         self.num_ctrl_points = 4
 
-        self.circle_obstacles_1 = {'x': 0.5, 'y': 0.5, 'r': 0.5}
+        self.circle_obstacles_1 = {'x': 0.0, 'y': 30, 'r': 1.0}
         self.circle_obstacles_2 = {'x': -0.5, 'y': -0.5, 'r': 0.6}
         self.circle_obstacles_3 = {'x': -1.0, 'y': 0.8, 'r': 0.5}
 
@@ -181,6 +181,7 @@ class mpc_bspline_ctrl_ros:
         cost = 0
         for i in range(4):
             for j in range(4):
+                # print( gm[i*4+j], cp[j] @ cp[i].T)
                 cost +=  gm[i*4+j] * cp[j] @ cp[i].T 
         return cost
 
@@ -195,10 +196,10 @@ class mpc_bspline_ctrl_ros:
         phi = X[3,:]
 
         U = opti.variable(8, 1)   # control points (8*1)
-        ctrl_point_1 = [U[0], U[1]]
-        ctrl_point_2 = [U[2], U[3]]
-        ctrl_point_3 = [U[4], U[5]]
-        ctrl_point_4 = [U[6], U[7]]
+        ctrl_point_1 = np.array([U[0], U[1]])
+        ctrl_point_2 = np.array([U[2], U[3]])
+        ctrl_point_3 = np.array([U[4], U[5]])
+        ctrl_point_4 = np.array([U[6], U[7]])
         cp = [ctrl_point_1, ctrl_point_2,ctrl_point_3, ctrl_point_4]
 
         # Uniform B spline time knots
@@ -207,7 +208,7 @@ class mpc_bspline_ctrl_ros:
 
         State_xy = X[0:2, :]
         target_xy = [self.target_x, self.target_y]
-        LL =  sumsqr(State_xy[:,-1] - target_xy) + 10*sumsqr(U[:,-1]) #+  1 * sumsqr(phi)
+        LL =  sumsqr(State_xy[:,-1] - target_xy) #+ 10*sumsqr(U[:,-1]) +  1 * sumsqr(phi)
         # L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
         # L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
         L = 400*sumsqr(State_xy[0] - x_target) + 40*sumsqr(State_xy[1] - y_target) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
@@ -246,7 +247,7 @@ class mpc_bspline_ctrl_ros:
         # opti.subject_to((phi)<=0.25)
         # opti.subject_to((phi)>=-0.25)
 
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
+        opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
         # opti.subject_to(pos_y<=self.upper_limit)
@@ -258,8 +259,8 @@ class mpc_bspline_ctrl_ros:
         omega_limit_upper = self.omega_limit
         omega_limit_lower = -self.omega_limit
 
-        v_limit = 1.0
-        omega_limit = 1.0
+        v_limit = 1.5
+        omega_limit = 3.0
         constraint_k = omega_limit/v_limit
         opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
         opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
@@ -399,7 +400,7 @@ class mpc_bspline_ctrl_ros:
         plt.gcf().gca().add_artist(target_circle4)
         plt.gcf().gca().add_artist(target_circle5)
         plt.gcf().gca().add_artist(target_circle6)
-        plt.axis([-5.0, 1.5, -2.4, 2.4])
+        # plt.axis([-5.0, 1.5, -2.4, 2.4])
         # plt.axis('equal')
         x = np.arange(x_start-1,4,0.01)
         plt.plot(x, len(x)*[self.upper_limit], 'g-', label='upper limit')
@@ -413,6 +414,6 @@ class mpc_bspline_ctrl_ros:
 if __name__ == "__main__":
     # target_x, target_y = 0.5, -0.5
     # x_target, y_target = -37.5, -25
-    x_target, y_target = 0, 40
+    x_target, y_target = 0, 50
     mpc_ = mpc_bspline_ctrl_ros(target_x=x_target, target_y=y_target)
     mpc_.main()

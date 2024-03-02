@@ -34,7 +34,7 @@ real_path_mpc = Path()
 
 class mpc_ctrl:
     def __init__(self):
-        self.N = 10 # number of horizons
+        self.N = 20 # number of horizons
         self.Epi = 3000 # number of episodes
         self.current_pose = None
         self.current_oriention = None
@@ -47,14 +47,14 @@ class mpc_ctrl:
         self.x = SX.sym("x", 4)  # state
         self.x_next_state = SX.sym("x_next", 4)
 
-        self.circle_obstacles_1 = {'x': -7, 'y': -20, 'r': 1.5}
-        self.circle_obstacles_2 = {'x': -12, 'y': -22, 'r': 1.6}
-        self.circle_obstacles_3 = {'x': -20, 'y': -21, 'r': 0.5}
+        self.circle_obstacles_1 = {'x': 0, 'y': 30, 'r': 1.0}
+        self.circle_obstacles_2 = {'x': 1, 'y': 35, 'r': 0.5}
+        self.circle_obstacles_3 = {'x': -1, 'y': 40, 'r': 0.5}
 
         self.upper_limit = -10
         self.lower_limit = -30
 
-        self.L = 1.75
+        self.L = 0.25
 
         xdot = np.cos(self.x[2])*self.u[0]
         ydot = np.sin(self.x[2])*self.u[0]
@@ -64,7 +64,7 @@ class mpc_ctrl:
         self.f = Function('f', [self.x, self.u], [self.x_next_state])
         
         self.v_limit = 1.5
-        self.omega_limit = 0.5
+        self.omega_limit = 3.0
         self.constraint_k = self.omega_limit/self.v_limit
 
     def pose_callback(self, data):
@@ -145,7 +145,7 @@ class mpc_ctrl:
 
         State_xy = X[0:2, :]
         target_xy = [x_target, y_target]
-        LL =  sumsqr(State_xy[:,-1] - target_xy) + 10*sumsqr(U[:,-1]) #+  1 * sumsqr(phi)
+        LL =  sumsqr(State_xy[:,-1] - target_xy) #+ 10*sumsqr(U[:,-1]) #+  1 * sumsqr(phi)
         # L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
         L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
 
@@ -180,12 +180,16 @@ class mpc_ctrl:
         # opti.subject_to((pos_y)<=-20)
         # opti.subject_to((pos_y)>-23)
             
-        # opti.subject_to((phi)<=0.25)
-        # opti.subject_to((phi)>=-0.25)
-
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
+        # opti.subject_to((phi)<=2)
+        # opti.subject_to((phi)>=-2)
+        # if self.distance_circle_obs(pos_x[0], pos_y[0], self.circle_obstacles_1) >= 0.1:
+        #     If_collision = 1 
+        # else:
+        #     If_collision = 0
+        # L += 100000 * If_collision
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.1)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.1)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.1)
         # opti.subject_to(pos_y<=self.upper_limit)
         # opti.subject_to(pos_y>=self.lower_limit)
 
@@ -247,7 +251,7 @@ class mpc_ctrl:
         path = Path()
 
         # x_target, y_target = -10.5, -25
-        x_target, y_target = 0, 20
+        x_target, y_target = 0, 50
 
         for i in tqdm.tqdm(range(self.Epi)):
             
