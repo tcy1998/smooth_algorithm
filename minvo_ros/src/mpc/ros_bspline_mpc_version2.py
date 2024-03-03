@@ -53,7 +53,7 @@ class mpc_bspline_ctrl_ros:
         self.tau_i = SX.sym("tau_i")   # time interval i
         self.tau_i1 = SX.sym("tau_i1")   # time interval i+1
 
-        self.L = 1.75
+        self.L = 0.25
 
         self.k42 = (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) + (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 + (self.tau - self.tau_i)**3/(self.tau_i - self.tau_i1)**3 + 1
         self.k11 = np.cos(self.x[2]) * self.k42
@@ -90,15 +90,19 @@ class mpc_bspline_ctrl_ros:
         self.poly_degree = 3
         self.num_ctrl_points = 4
 
-        self.circle_obstacles_1 = {'x': -0.25, 'y': 20, 'r': 1.5}
-        self.circle_obstacles_2 = {'x': 2.25, 'y': 30, 'r': 1.5}
-        self.circle_obstacles_3 = {'x': -1, 'y': 40, 'r': 1.5}
+        self.circle_obstacles_1 = {'x': -0.95, 'y': 15, 'r': 1.0}
+        self.circle_obstacles_2 = {'x': 5.15, 'y': 33, 'r': 1.0}
+        self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}
 
         self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
         self.plot_figures = False
 
-        self.v_limit = 1.5
-        self.omega_limit = 0.5
+        self.v_limit = 0.8
+        self.omega_limit = 3.0
+
+        self.old_control_v = 0
+        self.old_control_w = 0
+        self.old_steering_angle = 0
 
     def pose_callback(self, data):
         global simulation, real_path_bspline
@@ -255,12 +259,13 @@ class mpc_bspline_ctrl_ros:
             
         # opti.subject_to((phi)<=0.25)
         # opti.subject_to((phi)>=-0.25)
-        if (y_init >= self.circle_obstacles_1['y'] - 5) and (y_init <= self.circle_obstacles_1['y'] + 5):
-            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.2)**2)
-        if (y_init >= self.circle_obstacles_2['y'] - 5) and (y_init <= self.circle_obstacles_2['y'] + 5):
-            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.2)**2)
-        if (y_init >= self.circle_obstacles_3['y'] - 5) and (y_init <= self.circle_obstacles_3['y'] + 5):
-            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.2)**2)
+        if (y_init >= self.circle_obstacles_1['y'] - 8) and (y_init <= self.circle_obstacles_1['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 1.2)**2)
+        if (y_init >= self.circle_obstacles_2['y'] - 8) and (y_init <= self.circle_obstacles_2['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 1.2)**2)
+        if (y_init >= self.circle_obstacles_3['y'] - 8) and (y_init <= self.circle_obstacles_3['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 1.2)**2)
+
 
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
@@ -274,8 +279,8 @@ class mpc_bspline_ctrl_ros:
         omega_limit_upper = self.omega_limit
         omega_limit_lower = -self.omega_limit
 
-        v_limit = 1.5
-        omega_limit = 5.0
+        v_limit = self.v_limit
+        omega_limit = self.omega_limit
         constraint_k = omega_limit/v_limit
         opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
         opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
@@ -347,7 +352,15 @@ class mpc_bspline_ctrl_ros:
             # real_theta = -self.yaw_from_quaternion(quat_x, quat_y, quat_z, quat_w) + arctan2(real_y, real_x)
             (roll, pitch, real_theta) = euler_from_quaternion([quat_x, quat_y, quat_z, quat_w])
 
-            x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi)
+
+            try:
+                x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi)
+            except RuntimeError:
+                print("run time error")
+                U[0][0] = self.old_control_v
+                U[0][1] = self.old_control_w
+                phi = self.old_steering_angle
+
             print(real_x, real_y, phi, theta)
             ctrl_point_1 = [U[0], U[1]]
             ctrl_point_2 = [U[2], U[3]]
@@ -375,6 +388,8 @@ class mpc_bspline_ctrl_ros:
             mpc_cmd.ctrl_cmd.steering_angle = np.rad2deg(phi)
             # mpc_cmd.ctrl_cmd.linear_velocity = 1
             # mpc_cmd.ctrl_cmd.steering_angle = 1
+            self.old_control_v = U[0][0]
+            self.old_steering_angle = phi
             self.ctrl_publisher.publish(mpc_cmd)
 
 
@@ -431,6 +446,6 @@ class mpc_bspline_ctrl_ros:
 if __name__ == "__main__":
     # target_x, target_y = 0.5, -0.5
     # x_target, y_target = -37.5, -25
-    x_target, y_target = 0, 50
+    x_target, y_target = 0.4, 70
     mpc_ = mpc_bspline_ctrl_ros(target_x=x_target, target_y=y_target)
     mpc_.main()

@@ -35,7 +35,7 @@ real_path_mpc = Path()
 class mpc_ctrl:
     def __init__(self):
         self.N = 10 # number of horizons
-        self.Epi = 500 # number of episodes
+        self.Epi = 1300 # number of episodes
         self.current_pose = None
         self.current_oriention = None
         self.dt = 0.1 # time frequency 10Hz
@@ -48,9 +48,9 @@ class mpc_ctrl:
         self.x = SX.sym("x", 4)  # state
         self.x_next_state = SX.sym("x_next", 4)
 
-        self.circle_obstacles_1 = {'x': -0.45, 'y': 15, 'r': 1.0}
-        self.circle_obstacles_2 = {'x': 2.25, 'y': 30, 'r': 1.0}
-        self.circle_obstacles_3 = {'x': -1, 'y': 45, 'r': 1.0}
+        self.circle_obstacles_1 = {'x': -0.95, 'y': 15, 'r': 1.0}
+        self.circle_obstacles_2 = {'x': 5.15, 'y': 33, 'r': 1.0}
+        self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}
 
         self.upper_limit = -10
         self.lower_limit = -30
@@ -64,8 +64,8 @@ class mpc_ctrl:
         self.x_next_state = vertcat(xdot, ydot, thetadot, phidot)
         self.f = Function('f', [self.x, self.u], [self.x_next_state])
         
-        self.v_limit = 1.0
-        self.omega_limit = 5.0
+        self.v_limit = 0.8
+        self.omega_limit = 3.0
         self.constraint_k = self.omega_limit/self.v_limit
 
         self.old_control_v = 0
@@ -181,12 +181,12 @@ class mpc_ctrl:
         #     opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.2)**2)
 
 
-        if (y_init >= self.circle_obstacles_1['y'] - 5) and (y_init <= self.circle_obstacles_1['y'] + 5):
-            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.2)**2)
-        if (y_init >= self.circle_obstacles_2['y'] - 5) and (y_init <= self.circle_obstacles_2['y'] + 5):
-            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.2)**2)
-        if (y_init >= self.circle_obstacles_3['y'] - 5) and (y_init <= self.circle_obstacles_3['y'] + 5):
-            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.2)**2)
+        if (y_init >= self.circle_obstacles_1['y'] - 8) and (y_init <= self.circle_obstacles_1['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 1.2)**2)
+        if (y_init >= self.circle_obstacles_2['y'] - 8) and (y_init <= self.circle_obstacles_2['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 1.2)**2)
+        if (y_init >= self.circle_obstacles_3['y'] - 8) and (y_init <= self.circle_obstacles_3['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 1.2)**2)
 
 
         # ---- path constraints 1 -----------
@@ -269,7 +269,7 @@ class mpc_ctrl:
         path = Path()
 
         # x_target, y_target = -10.5, -25
-        x_target, y_target = 0.2, 70
+        x_target, y_target = 0.4, 70
 
         for i in tqdm.tqdm(range(self.Epi)):
             
