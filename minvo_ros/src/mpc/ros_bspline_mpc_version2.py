@@ -213,9 +213,9 @@ class mpc_bspline_ctrl_ros:
         # # L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
         # L = 400*sumsqr(State_xy[0] - x_target) + 40*sumsqr(State_xy[1] - y_target) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
         # L += 5 * self.cost_function_ctrlpoints(cp, 0, 1)
-        State_xy = X[0:2, :] - [self.target_x, self.target_y]        
+        State_xy = X[0:2, :] - [x_target, y_target]        
         Last_term = X[:,-1]
-        LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) #+ sumsqr(Last_term[2])
+        LL = sumsqr(Last_term[:2] - [x_target, y_target]) #+ sumsqr(Last_term[2])
 
         L = 10*sumsqr(State_xy) + 1 * self.cost_function_ctrlpoints(cp, 0, 1) + 100*LL # sum of QP terms
 
@@ -255,12 +255,13 @@ class mpc_bspline_ctrl_ros:
             
         # opti.subject_to((phi)<=0.25)
         # opti.subject_to((phi)>=-0.25)
-        if y_init <= 25 and y_init >= 15:
-            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.5)**2)
-        if y_init >= 25 and y_init <= 35:
-            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.5)**2)
-        if y_init >= 35 and y_init <= 45:
-            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.5)**2)
+        if (y_init >= self.circle_obstacles_1['y'] - 5) and (y_init <= self.circle_obstacles_1['y'] + 5):
+            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.2)**2)
+        if (y_init >= self.circle_obstacles_2['y'] - 5) and (y_init <= self.circle_obstacles_2['y'] + 5):
+            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.2)**2)
+        if (y_init >= self.circle_obstacles_3['y'] - 5) and (y_init <= self.circle_obstacles_3['y'] + 5):
+            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.2)**2)
+
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
         # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
@@ -291,7 +292,7 @@ class mpc_bspline_ctrl_ros:
         opti.subject_to(theta[0]==theta_init)
         opti.subject_to(phi[0]==phi_init)
 
-        opti.subject_to(opti.bounded(-np.pi/4, X[3, :], np.pi/4))
+        opti.subject_to(opti.bounded(-np.pi/6, X[3, :], np.pi/6))
 
 
         # ---- solve NLP              ------
