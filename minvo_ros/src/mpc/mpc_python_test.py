@@ -17,7 +17,7 @@ class mpc_ctrl:
         # self.N = 10 # number of control intervals
         # self.dt = 0.02 # time frequency 20Hz
         # self.N = 50 # number of control intervals
-        self.Epi = 500 # number of episodes
+        self.Epi = 700 # number of episodes
 
         self.target_x = target_x
         self.target_y = target_y
@@ -44,9 +44,13 @@ class mpc_ctrl:
         # self.circle_obstacles_2 = {'x': 1, 'y': 25, 'r': 1.0}
         # self.circle_obstacles_3 = {'x': -1, 'y': 30, 'r': 1.0}
 
-        self.circle_obstacles_1 = {'x': 20.0, 'y': -0.25, 'r': 1.0}
-        self.circle_obstacles_2 = {'x': 25, 'y': 1.25, 'r': 1.0}
-        self.circle_obstacles_3 = {'x': 30, 'y': -1, 'r': 1.0}
+        # self.circle_obstacles_1 = {'x': 20.0, 'y': -0.25, 'r': 1.5}
+        # self.circle_obstacles_2 = {'x': 30, 'y': 2.25, 'r': 1.5}
+        # self.circle_obstacles_3 = {'x': 40, 'y': -1, 'r': 1.5}
+
+        self.circle_obstacles_1 = {'x': -0.25, 'y': 20, 'r': 1.5}
+        self.circle_obstacles_2 = {'x': 2.25, 'y': 30, 'r': 1.5}
+        self.circle_obstacles_3 = {'x': -1, 'y': 40, 'r': 1.5}
 
         self.Kp = 0.5
         self.Kd = 0.1
@@ -85,17 +89,15 @@ class mpc_ctrl:
 
         # L = 10*sumsqr(State_xy) + sumsqr(U) + 10*LL # sum of QP terms
 
-        State_xy = X[0:2, :] - [self.target_x, self.target_y]
-        V = U[0, :]
-        
+        State_xy = X[0:2, :] - [self.target_x, self.target_y]        
         Last_term = X[:,-1]
         LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) #+ sumsqr(Last_term[2])
 
         L = 10*sumsqr(State_xy) + 1 * sumsqr(U) + 100*LL # sum of QP terms
 
-        L = 0.001 *L 
+        # L = 0.001 *L 
         
-        # L = 0.01 * L
+        L = 0.01 * L
 
         # State_xy = X[0:2, :]
         # target_xy = [self.target_x, self.target_y]
@@ -107,6 +109,11 @@ class mpc_ctrl:
 
         # ---- objective          ---------
         opti.minimize(L) # race in minimal time 
+
+        opti.subject_to(pos_x[0]==x_init)
+        opti.subject_to(pos_y[0]==y_init)   
+        opti.subject_to(theta[0]==theta_init)
+        opti.subject_to(phi[0]==phi_init)
 
         for k in range(self.N): # loop over control intervals
             # Runge-Kutta 4 integration
@@ -123,10 +130,22 @@ class mpc_ctrl:
             opti.subject_to(X[2,k+1]==theta_next)
             opti.subject_to(X[3,k+1]==phi_next)   # close the gaps
 
-            # opti.subject_to((x_next - self.circle_obstacles_1['x']) ** 2 + (y_next - self.circle_obstacles_1['y']) ** 2 - self.circle_obstacles_1['r'] ** 2 >= 0.9)
-            opti.subject_to(((x_next - 40) ** 2 + (y_next + 0.25) ** 2 - 1.0 ** 2) >= 0.9)
+            # opti.subject_to((x_next - self.circle_obstacles_1['x']) ** 2 + (y_next - self.circle_obstacles_1['y']) ** 2 - self.circle_obstacles_1['r'] ** 2 >= 0.0)
+            # opti.subject_to(((x_next - 40) ** 2 + (y_next + 0.25) ** 2 - 1.0 ** 2) >= 0.9)
             # opti.subject_to((x_next - self.circle_obstacles_2['x']) ** 2 + (y_next - self.circle_obstacles_2['y']) ** 2 - self.circle_obstacles_2['r'] ** 2 >= 0.9)
             # opti.subject_to(self.distance_circle_obs(x_next, y_next, self.circle_obstacles_1) >= self.circle_obstacles_1['r']**2)
+        
+        # ---- path constraints 1 -----------
+        if y_init <= 25 and y_init >= 15:
+            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.5)**2)
+        if y_init >= 25 and y_init <= 35:
+            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.5)**2)
+        if y_init >= 35 and y_init <= 45:
+            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.5)**2)
+        # opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.5)**2)
+        # opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.1)**2)
+
+
 
         opti.subject_to(opti.bounded(-np.pi/4, X[3, :], np.pi/4))
 
@@ -141,7 +160,7 @@ class mpc_ctrl:
 
         # ---- control constraints ----------
         v_limit = 1.5
-        omega_limit = 3.0
+        omega_limit = 5.0
         constraint_k = omega_limit/v_limit
 
         # ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
@@ -165,28 +184,34 @@ class mpc_ctrl:
 
         
         # ---- boundary conditions --------
-        opti.subject_to(pos_x[0]==x_init)
-        opti.subject_to(pos_y[0]==y_init)   
-        opti.subject_to(theta[0]==theta_init)
-        opti.subject_to(phi[0]==phi_init)
+
 
 
         # ---- solve NLP              ------
         opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
         
-        # opti.solver("ipopt", opts) # set numerical backend
-        opti.solver("ipopt") # set numerical backend
+        opti.solver("ipopt", opts) # set numerical backend
+        # opti.solver("ipopt") # set numerical backend
         
-
+        # opti.debug.show_infeasibilities()
+        # opti.callback(@(i) plot(opti.debug.value(x),opti.debug.value(y),'DisplayName',num2str(i)))
+        # opti.callback(lambda i: print(f"iter {i}", opti.debug.show_infeasibilities()))
+        # opti.callback(lambda i: print(f"iter {i}", opti.debug.value(U)))
+        # initial_guess_omega = np.zeros((1, self.N))
+        # initial_guess_velocity = (np.zeros((1, self.N)) + 1) * sumsqr(np.array([self.target_x, self.target_y]) - np.array([x_init, y_init]))/(self.N * self.dt)
+        # initial_guess = np.concatenate((initial_guess_velocity, initial_guess_omega), axis=0)
+        # opti.set_initial(U, initial_guess)
         sol = opti.solve()   # actual solve
         # self.casadi_time.append(sol.stats()['t_wall_total'])
+
+       
 
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(phi[1]), sol.value(U), sol.value(X)
 
 
     def dynamic_model(self, x, y, theta, phi, v, w):
-        control_change = 0.1
+        control_change = 0.2
         v = np.clip(v, self.Last_time_v - control_change, self.Last_time_v + control_change)
         w = np.clip(w, self.Last_time_w - control_change, self.Last_time_w + control_change)
 
@@ -251,7 +276,7 @@ class mpc_ctrl:
                     theta_real_log.append(theta_real)
                     U_real_log.append(U_real)
 
-                    if (x_0 - self.target_x) ** 2 + (y_0 - self.target_y) ** 2 < 0.01:
+                    if (y_real - self.target_x) ** 2 + (y_real - self.target_y) ** 2 < 0.1:
                         # break
                         print("reach the target", theta_0)
                         if self.plot_figures == True:
@@ -271,8 +296,14 @@ class mpc_ctrl:
                     y_real_log.append(y_real)
                     theta_real_log.append(theta_real)
                     U_real_log.append(U_real)
-                    if self.plot_figures == True:
-                        self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                    if (x_real - self.target_x) ** 2 + (y_real - self.target_y) ** 2 < 0.1:
+                        # break
+                        print("reach the target", theta_0)
+                        if self.plot_figures == True:
+                            self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                        return [1, theta_log], x_log, y_log
+                    # if self.plot_figures == True:
+                    #     self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
                     # return [0, theta_log], x_log, y_log
             print("not reach the target", theta_0)
             if self.plot_figures == True:
@@ -308,7 +339,8 @@ class mpc_ctrl:
         plt.show()
 
 
-        plt.plot(x_log, y_log, 'r-', label='desired path')
+        plt.plot(x_log, y_log, 'ro', label='desired path')
+        # plt.scatter(x_log, y_log, color='r', marker='o', s=1)
         plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
         plt.plot(self.target_x,self.target_y,'bo')
         plt.plot(start_x, start_y, 'go')
@@ -368,17 +400,19 @@ if __name__ == "__main__":
 
     # target_x, target_y = 0.0, 40.0              # ENV 1 target point
 
-    # start_x, start_y = -2.0, 10.0                # ENV 1 start point
+    # start_x, start_y = 10.0, 0.2                # ENV 1 start point
+    start_x, start_y = 0.2, 10.0                # ENV 1 start point
 
     
-    target_x, target_y = 70.0, 0.0              # ENV 1 target point
+    # target_x, target_y = 50.0, 0.5              # ENV 1 target point
+    target_x, target_y = 0.5, 50.0              # ENV 1 target point
 
-    start_x, start_y = 41.64600250013259, 0.6748606394363447           # ENV 1 start point
+    # start_x, start_y = 32.224759061698585, 0.6973959373449623           # ENV 1 start point
 
 
     # theta = 1.4
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     
     # theta = 0.1 * np.pi
-    theta =  -0.0237967613979889
+    theta =  0.04
     mpc.main(start_x, start_y, theta)
