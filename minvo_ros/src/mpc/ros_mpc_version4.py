@@ -34,8 +34,8 @@ real_path_mpc = Path()
 
 class mpc_ctrl:
     def __init__(self):
-        self.N = 20 # number of horizons
-        self.Epi = 3000 # number of episodes
+        self.N = 10 # number of horizons
+        self.Epi = 500 # number of episodes
         self.current_pose = None
         self.current_oriention = None
         self.dt = 0.1 # time frequency 10Hz
@@ -48,9 +48,9 @@ class mpc_ctrl:
         self.x = SX.sym("x", 4)  # state
         self.x_next_state = SX.sym("x_next", 4)
 
-        self.circle_obstacles_1 = {'x': -0.25, 'y': 20, 'r': 1.5}
-        self.circle_obstacles_2 = {'x': 2.25, 'y': 30, 'r': 1.5}
-        self.circle_obstacles_3 = {'x': -1, 'y': 40, 'r': 1.5}
+        self.circle_obstacles_1 = {'x': -0.45, 'y': 15, 'r': 1.0}
+        self.circle_obstacles_2 = {'x': 2.25, 'y': 30, 'r': 1.0}
+        self.circle_obstacles_3 = {'x': -1, 'y': 45, 'r': 1.0}
 
         self.upper_limit = -10
         self.lower_limit = -30
@@ -64,9 +64,13 @@ class mpc_ctrl:
         self.x_next_state = vertcat(xdot, ydot, thetadot, phidot)
         self.f = Function('f', [self.x, self.u], [self.x_next_state])
         
-        self.v_limit = 1.5
+        self.v_limit = 1.0
         self.omega_limit = 5.0
         self.constraint_k = self.omega_limit/self.v_limit
+
+        self.old_control_v = 0
+        self.old_control_w = 0
+        self.old_steering_angle = 0
 
     def pose_callback(self, data):
         global simulation, real_path_mpc
@@ -144,9 +148,9 @@ class mpc_ctrl:
 
         U = opti.variable(2, self.N)   # control points (2*1)
 
-        State_xy = X[0:2, :] - [self.target_x, self.target_y]        
+        State_xy = X[0:2, :] - [x_target, y_target]        
         Last_term = X[:,-1]
-        LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) #+ sumsqr(Last_term[2])
+        LL = sumsqr(Last_term[:2] - [x_target, y_target]) #+ sumsqr(Last_term[2])
 
         L = 10*sumsqr(State_xy) + 1 * sumsqr(U) + 100*LL # sum of QP terms
         
@@ -169,13 +173,22 @@ class mpc_ctrl:
             opti.subject_to(X[2,k+1]==theta_next)
             opti.subject_to(X[3,k+1]==phi_next)   # close the gaps
 
-        if y_init <= 25 and y_init >= 15:
-            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.5)**2)
-        if y_init >= 25 and y_init <= 35:
-            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.5)**2)
-        if y_init >= 35 and y_init <= 45:
-            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.5)**2)
-    
+        # if y_init <= 20 and y_init >= 15:
+        #     opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.2)**2)
+        # if y_init >= 25 and y_init <= 35:
+        #     opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.2)**2)
+        # if y_init >= 35 and y_init <= 45:
+        #     opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.2)**2)
+
+
+        if (y_init >= self.circle_obstacles_1['y'] - 5) and (y_init <= self.circle_obstacles_1['y'] + 5):
+            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.2)**2)
+        if (y_init >= self.circle_obstacles_2['y'] - 5) and (y_init <= self.circle_obstacles_2['y'] + 5):
+            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.2)**2)
+        if (y_init >= self.circle_obstacles_3['y'] - 5) and (y_init <= self.circle_obstacles_3['y'] + 5):
+            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.2)**2)
+
+
         # ---- path constraints 1 -----------
         # limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
         # limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
@@ -198,12 +211,12 @@ class mpc_ctrl:
         # opti.subject_to(pos_y>=self.lower_limit)
 
         # ---- control constraints ----------
-        opti.subject_to(opti.bounded(-np.pi/4, X[3, :], np.pi/4))
+        opti.subject_to(opti.bounded(-np.pi/6, X[3, :], np.pi/6))
         v_limit_upper = self.v_limit
         v_limit_lower = -self.v_limit
         omega_limit_upper = self.omega_limit
         omega_limit_lower = -self.omega_limit
-        opti.subject_to(opti.bounded(v_limit_lower, U[0, :], v_limit_upper))
+        opti.subject_to(opti.bounded(0, U[0, :], v_limit_upper))
         opti.subject_to(opti.bounded(omega_limit_lower, U[1, :], omega_limit_upper))
 
 
@@ -256,7 +269,7 @@ class mpc_ctrl:
         path = Path()
 
         # x_target, y_target = -10.5, -25
-        x_target, y_target = 0, 50
+        x_target, y_target = 0.2, 70
 
         for i in tqdm.tqdm(range(self.Epi)):
             
@@ -265,8 +278,17 @@ class mpc_ctrl:
             # real_theta = -self.yaw_from_quaternion(quat_x, quat_y, quat_z, quat_w) + arctan2(real_y, real_x)
             (roll, pitch, real_theta) = euler_from_quaternion([quat_x, quat_y, quat_z, quat_w])
 
-            x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi, x_target, y_target)
+
+            try:
+                x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi, x_target, y_target)
+            except RuntimeError:
+                print("run time error")
+                U[0][0] = self.old_control_v
+                U[0][1] = self.old_control_w
+                phi = self.old_steering_angle
+            
             print(real_x, real_y, phi, theta)
+            print("Control", U[0])
 
             # theta = theta_change(theta)
             x_log.append(x_0)
@@ -281,13 +303,7 @@ class mpc_ctrl:
 
             # reference_path_mpc.header.seq += 1
             # reference_path_mpc.header.stamp = rospy.Time.now()
-            # reference_path_mpc.header.frame_id = "world"
-            # reference_pose = PoseStamped()
-            # reference_pose.header = reference_path_mpc.header
-            # reference_pose.pose.position.x = x_0
-            # reference_pose.pose.position.y = y_0
-
-            # real_path_mpc.poses.append(reference_pose)
+           # real_path_mpc.poses.append(reference_pose)
             # self.real_path_mpc_pub.publish(real_path_mpc)
 
 
@@ -300,6 +316,9 @@ class mpc_ctrl:
 
             mpc_cmd.ctrl_cmd.linear_velocity = U[0][0]
             mpc_cmd.ctrl_cmd.steering_angle = np.rad2deg(phi)
+
+            self.old_control_v = U[0][0]
+            self.old_steering_angle = phi
             # mpc_cmd.ctrl_cmd.linear_velocity = 1
             # mpc_cmd.ctrl_cmd.steering_angle = 1
             self.ctrl_publisher.publish(mpc_cmd)
@@ -338,7 +357,13 @@ class mpc_ctrl:
         # y = np.sin(0.5 * pi * x) + self.initial_pos_sin_obs
         # plt.plot(x, y, 'g-', label='upper limit')
         # plt.plot(x, y-self.gap, 'b-', label='lower limit')
-        plt.show()
+        plt.show()   # reference_path_mpc.header.frame_id = "world"
+            # reference_pose = PoseStamped()
+            # reference_pose.header = reference_path_mpc.header
+            # reference_pose.pose.position.x = x_0
+            # reference_pose.pose.position.y = y_0
+
+          
 
         # sys.exit()
 
