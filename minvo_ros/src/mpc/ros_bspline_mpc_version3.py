@@ -90,8 +90,8 @@ class mpc_bspline_ctrl_ros:
         self.poly_degree = 3
         self.num_ctrl_points = 4
 
-        self.circle_obstacles_1 = {'x': -0.95, 'y': 15, 'r': 1.0}
-        self.circle_obstacles_2 = {'x': 5.15, 'y': 33, 'r': 1.0}
+        self.circle_obstacles_1 = {'x': -1.0, 'y': 15, 'r': 1.0}
+        self.circle_obstacles_2 = {'x': 2.15, 'y': 33, 'r': 1.0}
         self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}
 
         self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
