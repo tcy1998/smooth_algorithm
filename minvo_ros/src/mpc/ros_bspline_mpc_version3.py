@@ -28,6 +28,8 @@ from matplotlib import pyplot as plt
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from nav_msgs.msg import Path
 import std_msgs.msg
+from visualization_msgs.msg import Marker
+
 
 simulation = 0
 reference_path_mpc = Path()
@@ -318,6 +320,39 @@ class mpc_bspline_ctrl_ros:
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(phi[1]), sol.value(U)
 
+    def creat_marker(self, obstacle):
+        x = obstacle['x']
+        y = obstacle['y']
+        r = obstacle['r']
+        marker = Marker()
+
+        marker.header.frame_id = "/world"
+        marker.header.stamp = rospy.Time.now()
+
+        # set shape, Arrow: 0; Cube: 1 ; Sphere: 2 ; Cylinder: 3
+        marker.type = 1
+        marker.id = 0
+
+        # Set the scale of the marker
+        size = r*np.sqrt(2)
+        marker.scale.x = size
+        marker.scale.y = size
+        marker.scale.z = size
+
+        # Set the color
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+
+        # Set the pose of the marker
+        marker.pose.position.x = x
+        marker.pose.position.y = y
+        marker.pose.position.z = 0
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0
 
     def main(self):
 
@@ -334,6 +369,13 @@ class mpc_bspline_ctrl_ros:
         self.subsribe_pose()
         self.publish_ctrl()
         self.real_path_bspline_pub = rospy.Publisher('/real_path_bspline', Path, queue_size=10)
+
+        marker1_pub = rospy.Publisher("/obstacle_1", Marker, queue_size = 2)
+        marker2_pub = rospy.Publisher("/obstacle_2", Marker, queue_size = 2)
+        marker3_pub = rospy.Publisher("/obstacle_3", Marker, queue_size = 2)
+        marker1 = self.creat_marker(self.circle_obstacles_1)
+        marker2 = self.creat_marker(self.circle_obstacles_2)
+        marker3 = self.creat_marker(self.circle_obstacles_3)
 
         # rospy.spin()
         rospy.sleep(2)
@@ -399,6 +441,10 @@ class mpc_bspline_ctrl_ros:
             self.old_control_v = desire_ctrl[0][0]
             self.old_steering_angle = phi
             self.ctrl_publisher.publish(mpc_cmd)
+
+            marker1_pub.publish(marker1)
+            marker2_pub.publish(marker2)
+            marker3_pub.publish(marker3)
 
 
 
