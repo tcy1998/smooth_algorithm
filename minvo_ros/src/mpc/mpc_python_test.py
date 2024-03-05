@@ -11,13 +11,13 @@ from tqdm import tqdm
 
 class mpc_ctrl:
     def __init__(self, target_x, target_y):
-        self.dt = 0.05 # time frequency 20Hz
-        self.N = 20 # number of control intervals
+        self.dt = 0.1 # time frequency 20Hz
+        self.N = 80 # number of control intervals
         # self.dt = 0.1 # time frequency 10Hz
         # self.N = 10 # number of control intervals
         # self.dt = 0.02 # time frequency 20Hz
         # self.N = 50 # number of control intervals
-        self.Epi = 700 # number of episodes
+        self.Epi = 600 # number of episodes
 
         self.target_x = target_x
         self.target_y = target_y
@@ -48,16 +48,16 @@ class mpc_ctrl:
         # self.circle_obstacles_2 = {'x': 30, 'y': 2.25, 'r': 1.5}
         # self.circle_obstacles_3 = {'x': 40, 'y': -1, 'r': 1.5}
 
-        self.circle_obstacles_1 = {'x': -0.25, 'y': 20, 'r': 1.5}
-        self.circle_obstacles_2 = {'x': 2.25, 'y': 30, 'r': 1.5}
-        self.circle_obstacles_3 = {'x': -1, 'y': 40, 'r': 1.5}
+        self.circle_obstacles_1 = {'x': -0.25, 'y': 20, 'r': 3.5}
+        self.circle_obstacles_2 = {'x': 2.25, 'y': 30, 'r': 3.5}
+        self.circle_obstacles_3 = {'x': -1, 'y': 40, 'r': 3.5}
 
         self.Kp = 0.5
         self.Kd = 0.1
         self.dt1 = 0.05
         self.dt2 = 0.0025
 
-        self.v_limit = 1.5
+        self.v_limit = 1.0
         self.omega_limit = 3.0
         self.constraint_k = self.omega_limit/self.v_limit
 
@@ -92,8 +92,8 @@ class mpc_ctrl:
         State_xy = X[0:2, :] - [self.target_x, self.target_y]        
         Last_term = X[:,-1]
         LL = sumsqr(Last_term[:2] - [self.target_x, self.target_y]) #+ sumsqr(Last_term[2])
-
-        L = 10*sumsqr(State_xy) + 1 * sumsqr(U) + 100*LL # sum of QP terms
+        Scale = (1600)/(sumsqr(X[0:2, 0] - [self.target_x, self.target_y])+100)
+        L = 10*sumsqr(State_xy) * Scale + 5 * sumsqr(U) + 100*LL # sum of QP terms
 
         # L = 0.001 *L 
         
@@ -136,11 +136,11 @@ class mpc_ctrl:
             # opti.subject_to(self.distance_circle_obs(x_next, y_next, self.circle_obstacles_1) >= self.circle_obstacles_1['r']**2)
         
         # ---- path constraints 1 -----------
-        if y_init <= 25 and y_init >= 15:
+        if y_init <= 25:
             opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.5)**2)
-        if y_init >= 25 and y_init <= 35:
+        if y_init <= 35:
             opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.5)**2)
-        if y_init >= 35 and y_init <= 45:
+        if y_init <= 45:
             opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.5)**2)
         # opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.5)**2)
         # opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.1)**2)
@@ -159,8 +159,8 @@ class mpc_ctrl:
 
 
         # ---- control constraints ----------
-        v_limit = 1.5
-        omega_limit = 5.0
+        v_limit = 1.0
+        omega_limit = 0.5
         constraint_k = omega_limit/v_limit
 
         # ctrl_constraint_leftupper = lambda v: constraint_k*v + omega_limit          # omega <= constraint_k*v + omega_limit
@@ -172,7 +172,7 @@ class mpc_ctrl:
         # opti.subject_to(ctrl_constraint_leftlower(U[0,:])<=U[1,:])
         # opti.subject_to(ctrl_constraint_rightupper(U[0,:])>=U[1,:])
 
-        opti.subject_to(opti.bounded(-v_limit, U[0, :], v_limit))
+        opti.subject_to(opti.bounded(-0.0, U[0, :], v_limit))
         opti.subject_to(opti.bounded(-omega_limit, U[1, :], omega_limit))
 
         # ---- control change constraints ----
@@ -277,11 +277,11 @@ class mpc_ctrl:
                     U_real_log.append(U_real)
 
                     if (y_real - self.target_x) ** 2 + (y_real - self.target_y) ** 2 < 0.1:
-                        # break
-                        print("reach the target", theta_0)
-                        if self.plot_figures == True:
-                            self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
-                        return [1, theta_log], x_log, y_log
+                        break
+                        # print("reach the target", theta_0)
+                        # if self.plot_figures == True:
+                        #     self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                        # return [1, theta_log], x_log, y_log
                 except RuntimeError:
                     print("1st time Infesible", theta_0)
                     print("x_real, y_real, theta_real, phi", x_real, y_real, theta_real, phi_real)
@@ -297,15 +297,15 @@ class mpc_ctrl:
                     theta_real_log.append(theta_real)
                     U_real_log.append(U_real)
                     if (x_real - self.target_x) ** 2 + (y_real - self.target_y) ** 2 < 0.1:
-                        # break
-                        print("reach the target", theta_0)
-                        if self.plot_figures == True:
-                            self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
-                        return [1, theta_log], x_log, y_log
+                        break
+                        # print("reach the target", theta_0)
+                        # if self.plot_figures == True:
+                        #     self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
+                        # return [1, theta_log], x_log, y_log
                     # if self.plot_figures == True:
                     #     self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
                     # return [0, theta_log], x_log, y_log
-            print("not reach the target", theta_0)
+            # print("not reach the target", theta_0)
             if self.plot_figures == True:
                 self.plot_results(start_x, start_y, theta_log, U_log, x_log, y_log, x_real_log, y_real_log, U_real_log, theta_real_log)
             return [0, theta_log], x_log, y_log
@@ -414,5 +414,5 @@ if __name__ == "__main__":
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     
     # theta = 0.1 * np.pi
-    theta =  0.04
+    theta =  0.5*np.pi
     mpc.main(start_x, start_y, theta)
