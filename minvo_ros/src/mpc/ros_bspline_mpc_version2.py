@@ -86,7 +86,7 @@ class mpc_bspline_ctrl_ros:
         self.x_dot = vertcat(xdot, ydot, thetadot, phidot)
 
         self.f = Function('f', [self.x, self.u, self.tau, self.tau_i, self.tau_i1],[self.x_dot])
-        self.dt = 0.05 # length of a control interval
+        # self.dt = 0.05 # length of a control interval
         self.poly_degree = 3
         self.num_ctrl_points = 4
 

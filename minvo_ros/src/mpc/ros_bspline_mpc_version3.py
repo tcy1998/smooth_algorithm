@@ -88,19 +88,19 @@ class mpc_bspline_ctrl_ros:
         self.x_dot = vertcat(xdot, ydot, thetadot, phidot)
 
         self.f = Function('f', [self.x, self.u, self.tau, self.tau_i, self.tau_i1],[self.x_dot])
-        self.dt = 0.05 # length of a control interval
+        # self.dt = 0.05 # length of a control interval
         self.poly_degree = 3
         self.num_ctrl_points = 4
 
-        self.circle_obstacles_1 = {'x': -1.0, 'y': 15, 'r': 1.0}
-        self.circle_obstacles_2 = {'x': 2.15, 'y': 33, 'r': 1.0}
-        self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}
+        self.circle_obstacles_1 = {'x': -0.95, 'y': 15, 'r': 1.0}
+        self.circle_obstacles_2 = {'x': 5.15, 'y': 33, 'r': 1.0}
+        self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}                                                                                
 
         self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
         self.plot_figures = False
 
         self.v_limit = 0.8
-        self.omega_limit = 3.0
+        self.omega_limit = 3
 
         self.old_control_v = 0
         self.old_control_w = 0
@@ -262,7 +262,7 @@ class mpc_bspline_ctrl_ros:
         # opti.subject_to((phi)<=0.25)
         # opti.subject_to((phi)>=-0.25)
         if (y_init >= self.circle_obstacles_1['y'] - 8) and (y_init <= self.circle_obstacles_1['y'] + 8):
-            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 1.2)**2)
+            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 2.2)**2)
         if (y_init >= self.circle_obstacles_2['y'] - 8) and (y_init <= self.circle_obstacles_2['y'] + 8):
             opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 1.2)**2)
         if (y_init >= self.circle_obstacles_3['y'] - 8) and (y_init <= self.circle_obstacles_3['y'] + 8):
@@ -322,7 +322,7 @@ class mpc_bspline_ctrl_ros:
 
     def creat_marker(self, obstacle):
         x = obstacle['x']
-        y = obstacle['y']
+        y = obstacle['y'] + 5
         r = obstacle['r']
         marker = Marker()
 
@@ -334,14 +334,14 @@ class mpc_bspline_ctrl_ros:
         marker.id = 0
 
         # Set the scale of the marker
-        size = r*np.sqrt(2)
+        size = r*np.sqrt(5)
         marker.scale.x = size
         marker.scale.y = size
         marker.scale.z = size
 
         # Set the color
-        marker.color.r = 0.0
-        marker.color.g = 1.0
+        marker.color.r = 1.0
+        marker.color.g = 0.0
         marker.color.b = 0.0
         marker.color.a = 1.0
 
