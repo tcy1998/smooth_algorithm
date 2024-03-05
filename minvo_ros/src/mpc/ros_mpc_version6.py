@@ -6,14 +6,6 @@ from casadi import *
 import tqdm
 import rospy
 from geometry_msgs.msg import PoseStamped
-from autoware_msgs.msg import VehicleCmd
-import matplotlib.pyplot as plt
-import math
-import sys
-
-sys.path.append('/home/gem/minvo_motion_planning/casadi_minvo')
-from B_spline import Bspline, Bspline_basis
-
 
 #for simulation
 from gazebo_msgs.msg import ModelStates
@@ -22,8 +14,10 @@ from gazebo_msgs.srv import GetModelState
 from autoware_msgs.msg import VehicleCmd
 
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+
+# import matplotlib.pyplot as plt
 
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from nav_msgs.msg import Path
@@ -31,96 +25,69 @@ import std_msgs.msg
 from visualization_msgs.msg import Marker
 
 
-simulation = 0
-reference_path_mpc = Path()
-real_path_bspline = Path()
 
-class mpc_bspline_ctrl_ros:
-    def __init__(self, target_x, target_y):
+import math, csv
+
+global simulation, path
+simulation = 0 # 0 is off, 1 is on
+reference_path_mpc = Path()
+real_path_mpc = Path()
+
+class mpc_ctrl:
+    def __init__(self):
         self.N = 10 # number of horizons
-        self.Epi = 1300
+        self.Epi = 2000 # number of episodes
         self.current_pose = None
         self.current_oriention = None
-        self.dt = 0.1
+        self.dt = 0.2 # time frequency 10Hz
+        # self.dt = 0.05  # time frequency 20Hz
 
-        self.target_x = target_x
-        self.target_y = target_y
-
-        self.upper_limit = 1.5 
-        self.lower_limit = -2.0 
-
-        self.tau = SX.sym("tau")    # time
-        self.u = SX.sym("u", 8)    # control
+        self.initial_pos_sin_obs = 1
+        self.gap = 4   # gap between upper and lower limit
+        
+        self.u = SX.sym("u", 2)    # control
         self.x = SX.sym("x", 4)  # state
-        self.tau_i = SX.sym("tau_i")   # time interval i
-        self.tau_i1 = SX.sym("tau_i1")   # time interval i+1
+        self.x_next_state = SX.sym("x_next", 4)
 
-        self.L = 0.25
-
-        self.k42 = (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) + (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 + (self.tau - self.tau_i)**3/(self.tau_i - self.tau_i1)**3 + 1
-        self.k11 = np.cos(self.x[2]) * self.k42
-        self.k21 = np.sin(self.x[2]) * self.k42
-        self.k31 = np.tan(self.x[3])/self.L * self.k42
-        self.k44 = - (3*(self.tau - self.tau_i))/(self.tau_i - self.tau_i1) - (6*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 - (3*(self.tau - self.tau_i)**3)/(self.tau_i - self.tau_i1)**3
-        self.k13 = np.cos(self.x[2]) * self.k44
-        self.k23 = np.sin(self.x[2]) * self.k44
-        self.k33 = np.tan(self.x[3])/self.L * self.k44
-        self.k46 = (3*(self.tau - self.tau_i)**2)/(self.tau_i - self.tau_i1)**2 + (3*(self.tau - self.tau_i)**3)/(self.tau_i - self.tau_i1)**3
-        self.k15 = np.cos(self.x[2]) * self.k46
-        self.k25 = np.sin(self.x[2]) * self.k46
-        self.k35 = np.tan(self.x[3])/self.L * self.k46
-        self.k48 = - (self.tau - self.tau_i)**3/(self.tau_i - self.tau_i1)**3
-        self.k17 = np.cos(self.x[2]) * self.k48
-        self.k27 = np.sin(self.x[2]) * self.k48
-        self.k37 = np.tan(self.x[3])/self.L * self.k48
-
-
-        self.Kp = 0.5
-        self.Kd = 0.1
-        self.dt1 = 0.05
-        self.dt2 = 0.0025
-
-        xdot = self.k11*self.u[0] + self.k13*self.u[2] + self.k15*self.u[4] + self.k17*self.u[6]
-        ydot = self.k21*self.u[0] + self.k23*self.u[2] + self.k25*self.u[4] + self.k27*self.u[6]
-        thetadot = self.k31*self.u[0] + self.k33*self.u[2] + self.k35*self.u[4] + self.k37*self.u[6]
-        phidot = self.k42*self.u[1] + self.k44*self.u[3] + self.k46*self.u[5] + self.k48*self.u[7]
-
-        self.x_dot = vertcat(xdot, ydot, thetadot, phidot)
-
-        self.f = Function('f', [self.x, self.u, self.tau, self.tau_i, self.tau_i1],[self.x_dot])
-        self.dt = 0.05 # length of a control interval
-        self.poly_degree = 3
-        self.num_ctrl_points = 4
-
-        self.circle_obstacles_1 = {'x': -1.0, 'y': 15, 'r': 1.0}
+        self.circle_obstacles_1 = {'x': -0.8, 'y': 15, 'r': 1.0}
         self.circle_obstacles_2 = {'x': 2.15, 'y': 33, 'r': 1.0}
         self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}
 
-        self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
-        self.plot_figures = False
+        self.upper_limit = -10
+        self.lower_limit = -30
 
+        self.L = 1.75
+
+        xdot = np.cos(self.x[2])*self.u[0]
+        ydot = np.sin(self.x[2])*self.u[0]
+        thetadot = (np.tan(self.x[3])/self.L)*self.u[0]
+        phidot = self.u[1]
+        self.x_next_state = vertcat(xdot, ydot, thetadot, phidot)
+        self.f = Function('f', [self.x, self.u], [self.x_next_state])
+        
         self.v_limit = 0.8
-        self.omega_limit = 3.0
+        self.omega_limit = 0.5
+        self.constraint_k = self.omega_limit/self.v_limit
 
         self.old_control_v = 0
         self.old_control_w = 0
         self.old_steering_angle = 0
 
     def pose_callback(self, data):
-        global simulation, real_path_bspline
+        global simulation, real_path_mpc
         # self.current_pose = [pose.position.x, pose.position.y, pose.position.z]
         # print(self.current_pose, self.current_oriention)
         if simulation == 0:
             self.current_pose = [data.pose.position.x, data.pose.position.y, data.pose.position.z]        
             self.current_oriention = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
-            real_path_bspline.header.seq += 1
-            real_path_bspline.header.stamp = rospy.Time.now()
-            real_path_bspline.header.frame_id = "world"
+            real_path_mpc.header.seq += 1
+            real_path_mpc.header.stamp = rospy.Time.now()
+            real_path_mpc.header.frame_id = "world"
             pose = PoseStamped()
-            pose.header = real_path_bspline.header
+            pose.header = real_path_mpc.header
             pose.pose = data.pose
-            real_path_bspline.poses.append(pose)
-            self.real_path_bspline_pub.publish(real_path_bspline)
+            real_path_mpc.poses.append(pose)
+            self.real_path_mpc_pub.publish(real_path_mpc)
         elif simulation == 1:
             # rospy.wait_for_service('/gazebo/get_model_state')
             # service_response = rospy.ServiceProxy('/gazebo/get_model_states', GetModelStates)
@@ -131,6 +98,21 @@ class mpc_bspline_ctrl_ros:
             self.current_pose = [data.position.x, data.position.y, data.position.z]        
             self.current_oriention = [data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w]
 
+            # path.header = data.header
+            # path.header = std_msgs.msg.Header()
+            real_path_mpc.header.seq += 1
+            real_path_mpc.header.stamp = rospy.Time.now()
+            real_path_mpc.header.frame_id = "world"
+            pose = PoseStamped()
+            pose.header = real_path_mpc.header
+            x = data.position.x
+            y = data.position.y
+            data.position.x = -y-22
+            data.position.y = x + 44
+            pose.pose = data
+            real_path_mpc.poses.append(pose)
+            self.real_path_mpc_pub.publish(real_path_mpc)
+
     def subsribe_pose(self):
         global simulation
         if simulation == 0:
@@ -139,6 +121,8 @@ class mpc_bspline_ctrl_ros:
         elif simulation == 1:
             print("Using simulation")
             self.pose_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.pose_callback)
+            # self.pose_sub = rospy.Subscriber('/gazebo/get_model_states', GetModelStates, self.pose_callback)
+
 
     def publish_ctrl(self):
         self.ctrl_publisher = rospy.Publisher("/mpc_cmd_vel", VehicleCmd, queue_size=10)
@@ -153,79 +137,23 @@ class mpc_bspline_ctrl_ros:
     def distance_circle_obs(self, x, y, circle_obstacles):
         return (x - circle_obstacles['x']) ** 2 + (y - circle_obstacles['y']) ** 2 - circle_obstacles['r'] ** 2
 
-    def find_correct_index(self, array, value):
-        indicator = 0
-        index = 0
-        while indicator == 0:
-            indicator = 1 if array[index] <= value < array[index+1] else 0
-            index += 1
-        return index - 1
 
-    def coefficients(self, tau_i, tau_i1):
-        gm11 = tau_i1/7 - tau_i/7
-        gm21 = tau_i1/14 - tau_i/14
-        gm31 = tau_i1/35 - tau_i/35
-        gm41 = tau_i1/140 - tau_i/140
-        gm12 = gm21
-        gm22 = (3*tau_i1)/35 - (3*tau_i)/35
-        gm32 = (9*tau_i1)/140 - (9*tau_i)/140
-        gm42 = tau_i1/35 - tau_i/35
-        gm13 = gm31
-        gm23 = gm32
-        gm33 = (3*tau_i1)/35 - (3*tau_i)/35
-        gm43 = tau_i1/14 - tau_i/14
-        gm14 = gm41
-        gm24 = gm42
-        gm34 = gm43
-        gm44 = tau_i1/7 - tau_i/7
-
-        return [gm11, gm21, gm31, gm41, gm12, gm22, gm32, gm42, gm13, gm23, gm33, gm43, gm14, gm24, gm34, gm44]
-    
-
-    def cost_function_ctrlpoints(self, cp, tau_i, tau_i1):
-        gm = self.coefficients(tau_i, tau_i1)
-        cost = 0
-        for i in range(4):
-            for j in range(4):
-                # print( gm[i*4+j], cp[j] @ cp[i].T)
-                cost +=  gm[i*4+j] * cp[j] @ cp[i].T 
-        return cost
-
-    def solver_mpc(self, x_init, y_init, theta_init, phi_init):
+    def solver_mpc(self, x_init, y_init, theta_init, phi_init, x_target, y_target):
         # ---- decision variables ---------
         opti = Opti() # Optimization problem
-        time_interval = np.arange(0, self.N) *self.dt
         X = opti.variable(4, self.N+1) # state trajectory
         pos_x = X[0,:]
         pos_y = X[1,:]
         theta = X[2,:]
         phi = X[3,:]
 
-        U = opti.variable(8, 1)   # control points (8*1)
-        ctrl_point_1 = np.array([U[0], U[1]])
-        ctrl_point_2 = np.array([U[2], U[3]])
-        ctrl_point_3 = np.array([U[4], U[5]])
-        ctrl_point_4 = np.array([U[6], U[7]])
-        cp = [ctrl_point_1, ctrl_point_2,ctrl_point_3, ctrl_point_4]
+        U = opti.variable(2, self.N)   # control points (2*1)
 
-        # Uniform B spline time knots
-        t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
-
-
-        # State_xy = X[0:2, :]
-        # target_xy = [self.target_x, self.target_y]
-        # LL =  sumsqr(State_xy[:,-1] - target_xy) #+ 10*sumsqr(U[:,-1]) +  1 * sumsqr(phi)
-        # # L = 40*sumsqr(State_xy - target_xy) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
-        # # L = 40*sumsqr(State_xy[0] - x_target) + 400*sumsqr(State_xy[1] - y_target) + 5 * sumsqr(U) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
-        # L = 400*sumsqr(State_xy[0] - x_target) + 40*sumsqr(State_xy[1] - y_target) + 100 * LL + 50 * sumsqr(phi) # sum of QP terms
-        # L += 5 * self.cost_function_ctrlpoints(cp, 0, 1)
         State_xy = X[0:2, :] - [x_target, y_target]        
         Last_term = X[:,-1]
         LL = sumsqr(Last_term[:2] - [x_target, y_target]) #+ sumsqr(Last_term[2])
 
-        L = 10*sumsqr(State_xy) + 1 * self.cost_function_ctrlpoints(cp, 0, 1) + 100*LL # sum of QP terms
-
-        # L = 0.001 *L 
+        L = 10*sumsqr(State_xy) + 1 * sumsqr(U) + 100*LL # sum of QP terms
         
         L = 0.01 * L
 
@@ -233,15 +161,10 @@ class mpc_bspline_ctrl_ros:
         opti.minimize(L) # race in minimal time 
 
         for k in range(self.N): # loop over control intervals
-            # Runge-Kutta 4 integration
-            index_ = self.find_correct_index(t, time_interval[k])
-            timei = t[index_]
-            timei1 = t[index_+1]
-            
-            k1 = self.f(X[:,k],         U[:], time_interval[k], timei, timei1)
-            k2= self.f(X[:,k]+(self.dt/2)*k1, U[:], time_interval[k], timei, timei1)
-            k3 = self.f(X[:,k]+self.dt/2*k2, U[:], time_interval[k], timei, timei1)
-            k4 = self.f(X[:,k]+self.dt*k3,   U[:], time_interval[k], timei, timei1)
+            k1 = self.f(X[:,k],         U[:,k])
+            k2 = self.f(X[:,k]+(self.dt/2)*k1, U[:,k])
+            k3 = self.f(X[:,k]+self.dt/2*k2, U[:,k])
+            k4 = self.f(X[:,k]+self.dt*k3,   U[:,k])
             x_next = X[0,k] + self.dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0])
             y_next = X[1,k] + self.dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1])
             theta_next = X[2,k] + self.dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2])
@@ -250,7 +173,23 @@ class mpc_bspline_ctrl_ros:
             opti.subject_to(X[1,k+1]==y_next)
             opti.subject_to(X[2,k+1]==theta_next)
             opti.subject_to(X[3,k+1]==phi_next)   # close the gaps
-    
+
+        # if y_init <= 20 and y_init >= 15:
+        #     opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.2)**2)
+        # if y_init >= 25 and y_init <= 35:
+        #     opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.2)**2)
+        # if y_init >= 35 and y_init <= 45:
+        #     opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.2)**2)
+
+
+        if (y_init >= self.circle_obstacles_1['y'] - 8) and (y_init <= self.circle_obstacles_1['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 0.5)**2)
+        if (y_init >= self.circle_obstacles_2['y'] - 8) and (y_init <= self.circle_obstacles_2['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 0.5)**2)
+        if (y_init >= self.circle_obstacles_3['y'] - 8) and (y_init <= self.circle_obstacles_3['y'] + 8):
+            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 0.5)**2)
+
+
         # ---- path constraints 1 -----------
         # limit_upper = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs
         # limit_lower = lambda pos_x: sin(0.5*pi*pos_x) + self.initial_pos_sin_obs - self.gap
@@ -259,53 +198,34 @@ class mpc_bspline_ctrl_ros:
         # opti.subject_to((pos_y)<=-20)
         # opti.subject_to((pos_y)>-23)
             
-        # opti.subject_to((phi)<=0.25)
-        # opti.subject_to((phi)>=-0.25)
-        if (y_init >= self.circle_obstacles_1['y'] - 8) and (y_init <= self.circle_obstacles_1['y'] + 8):
-            opti.subject_to((pos_x - self.circle_obstacles_1['x'])**2 + (pos_y - self.circle_obstacles_1['y'])**2 >= (self.circle_obstacles_1['r'] + 1.2)**2)
-        if (y_init >= self.circle_obstacles_2['y'] - 8) and (y_init <= self.circle_obstacles_2['y'] + 8):
-            opti.subject_to((pos_x - self.circle_obstacles_2['x'])**2 + (pos_y - self.circle_obstacles_2['y'])**2 >= (self.circle_obstacles_2['r'] + 1.2)**2)
-        if (y_init >= self.circle_obstacles_3['y'] - 8) and (y_init <= self.circle_obstacles_3['y'] + 8):
-            opti.subject_to((pos_x - self.circle_obstacles_3['x'])**2 + (pos_y - self.circle_obstacles_3['y'])**2 >= (self.circle_obstacles_3['r'] + 1.2)**2)
-
-
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.01)
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.01)
-        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.01)
+        # opti.subject_to((phi)<=2)
+        # opti.subject_to((phi)>=-2)
+        # if self.distance_circle_obs(pos_x[0], pos_y[0], self.circle_obstacles_1) >= 0.1:
+        #     If_collision = 1 
+        # else:
+        #     If_collision = 0
+        # L += 100000 * If_collision
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_1) >= 0.1)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_2) >= 0.1)
+        # opti.subject_to(self.distance_circle_obs(pos_x, pos_y, self.circle_obstacles_3) >= 0.1)
         # opti.subject_to(pos_y<=self.upper_limit)
         # opti.subject_to(pos_y>=self.lower_limit)
 
         # ---- control constraints ----------
+        opti.subject_to(opti.bounded(-np.pi/6, X[3, :], np.pi/6))
         v_limit_upper = self.v_limit
         v_limit_lower = -self.v_limit
         omega_limit_upper = self.omega_limit
         omega_limit_lower = -self.omega_limit
+        opti.subject_to(opti.bounded(0, U[0, :], v_limit_upper))
+        opti.subject_to(opti.bounded(omega_limit_lower, U[1, :], omega_limit_upper))
 
-        v_limit = self.v_limit
-        omega_limit = self.omega_limit
-        constraint_k = omega_limit/v_limit
-        # opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
-        # opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
-        # opti.subject_to(opti.bounded(-v_limit, U[4], v_limit))
-        # opti.subject_to(opti.bounded(-v_limit, U[6], v_limit))
-
-        opti.subject_to(opti.bounded(0, U[0], v_limit))
-        opti.subject_to(opti.bounded(0, U[2], v_limit))
-        opti.subject_to(opti.bounded(0, U[4], v_limit))
-        opti.subject_to(opti.bounded(0, U[6], v_limit))
-
-        opti.subject_to(opti.bounded(-omega_limit, U[1], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[3], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[5], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[7], omega_limit))
 
         # ---- boundary conditions --------
         opti.subject_to(pos_x[0]==x_init)
         opti.subject_to(pos_y[0]==y_init)   
         opti.subject_to(theta[0]==theta_init)
         opti.subject_to(phi[0]==phi_init)
-
-        opti.subject_to(opti.bounded(-np.pi/6, X[3, :], np.pi/6))
 
 
         # ---- solve NLP              ------
@@ -319,7 +239,7 @@ class mpc_bspline_ctrl_ros:
 
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(phi[1]), sol.value(U)
-
+    
     def creat_marker(self, obstacle):
         x = obstacle['x']
         y = obstacle['y']
@@ -340,8 +260,8 @@ class mpc_bspline_ctrl_ros:
         marker.scale.z = size
 
         # Set the color
-        marker.color.r = 0.0
-        marker.color.g = 1.0
+        marker.color.r = 1.0
+        marker.color.g = 0.0
         marker.color.b = 0.0
         marker.color.a = 1.0
 
@@ -370,8 +290,9 @@ class mpc_bspline_ctrl_ros:
 
         self.subsribe_pose()
         self.publish_ctrl()
-        self.real_path_bspline_pub = rospy.Publisher('/real_path_bspline', Path, queue_size=10)
-
+        self.real_path_mpc_pub = rospy.Publisher('/real_path_mpc', Path, queue_size=10)
+        self.reference_path_mpc_pub = rospy.Publisher('/reference_path_mpc', Path, queue_size=10)
+        
         marker1_pub = rospy.Publisher("/obstacle_1", Marker, queue_size = 2)
         marker2_pub = rospy.Publisher("/obstacle_2", Marker, queue_size = 2)
         marker3_pub = rospy.Publisher("/obstacle_3", Marker, queue_size = 2)
@@ -397,11 +318,10 @@ class mpc_bspline_ctrl_ros:
         # #     rospy.spin()
         # print("jump out")
         phi = 0
-        x_start, y_start = self.current_pose[0], self.current_pose[1]
-        curve_degree = 3
-        control_pt_num = 4
-        time_knots_num = control_pt_num + curve_degree + 1
+        path = Path()
 
+        # x_target, y_target = -10.5, -25
+        x_target, y_target = 0.4, 70
 
         for i in tqdm.tqdm(range(self.Epi)):
             
@@ -412,44 +332,48 @@ class mpc_bspline_ctrl_ros:
 
 
             try:
-                x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi)
-
-
-                ctrl_point_1 = [U[0], U[1]]
-                ctrl_point_2 = [U[2], U[3]]
-                ctrl_point_3 = [U[4], U[5]]
-                ctrl_point_4 = [U[6], U[7]]
-                ctrl_points = np.array([ctrl_point_1, ctrl_point_2, ctrl_point_3, ctrl_point_4])
-                
-                t = np.array([0]*self.poly_degree + list(range(self.num_ctrl_points-self.poly_degree+1)) + [self.num_ctrl_points-self.poly_degree]*self.poly_degree,dtype='int')
-                traj_prime = Bspline_basis()
-                bspline_curve_prime = traj_prime.bspline_basis(ctrl_points, t, curve_degree)
-                desire_ctrl = bspline_curve_prime[0:5]
-
+                x_0, y_0, theta, phi, U = self.solver_mpc(real_x, real_y, real_theta, phi, x_target, y_target)
             except RuntimeError:
                 print("run time error")
-                desire_ctrl[0][0] = self.old_control_v
-                desire_ctrl[0][1] = self.old_control_w
+                # U[0][0] = self.old_control_v
+                U[0][0] = self.v_limit
+                U[0][1] = self.old_control_w
                 phi = self.old_steering_angle
-                
+            
             print(real_x, real_y, phi, theta)
+            print("Control", U[0])
 
+            # theta = theta_change(theta)
             x_log.append(x_0)
             y_log.append(y_0)
             theta_log.append(theta)
-            U_log.append(desire_ctrl)
+            U_log.append(U)
             phi_log.append(phi)
 
             x_real_log.append(real_x)
             y_real_log.append(real_y)
             theta_real_log.append(real_theta)
 
-            mpc_cmd.ctrl_cmd.linear_velocity = desire_ctrl[0][0]
+            # reference_path_mpc.header.seq += 1
+            # reference_path_mpc.header.stamp = rospy.Time.now()
+           # real_path_mpc.poses.append(reference_pose)
+            # self.real_path_mpc_pub.publish(real_path_mpc)
+
+
+
+            # rows = zip(x_real_log, y_real_log, theta_real_log)
+            # with open("real_path_mpc.csv", "w") as f:
+            #     writer = csv.writer(f)
+            #     for row in rows:
+            #         writer.writerow(row)
+
+            mpc_cmd.ctrl_cmd.linear_velocity = U[0][0]
             mpc_cmd.ctrl_cmd.steering_angle = np.rad2deg(phi)
+
+            self.old_control_v = U[0][0]
+            self.old_steering_angle = phi
             # mpc_cmd.ctrl_cmd.linear_velocity = 1
             # mpc_cmd.ctrl_cmd.steering_angle = 1
-            self.old_control_v = desire_ctrl[0][0]
-            self.old_steering_angle = phi
             self.ctrl_publisher.publish(mpc_cmd)
 
             marker1.header.stamp = rospy.Time.now()
@@ -463,10 +387,7 @@ class mpc_bspline_ctrl_ros:
             marker4_pub.publish(marker4)
             marker5_pub.publish(marker5)
 
-
-
-
-            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < 1.0:
+            if (x_0 - x_target) ** 2 + (y_0 - y_target) ** 2 < self.L**2:
                 mpc_cmd.ctrl_cmd.linear_velocity = 0
                 self.ctrl_publisher.publish(mpc_cmd)
                 break
@@ -488,8 +409,8 @@ class mpc_bspline_ctrl_ros:
         ## Plot for sin obstacles
         plt.plot(x_log, y_log, 'r-', label='desired path')
         plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
-        plt.plot(self.target_x,self.target_y,'bo')
-        plt.plot(x_start, y_start, 'go')
+        # plt.plot(self.target_x,self.target_y,'bo')
+        # plt.plot(x_start, y_start, 'go')
         plt.xlabel('pos_x')
         plt.ylabel('pos_y')
         plt.axis("equal")
@@ -507,18 +428,17 @@ class mpc_bspline_ctrl_ros:
         plt.gcf().gca().add_artist(target_circle6)
         # plt.axis([-5.0, 1.5, -2.4, 2.4])
         # plt.axis('equal')
-        x = np.arange(x_start-1,4,0.01)
-        plt.plot(x, len(x)*[self.upper_limit], 'g-', label='upper limit')
-        plt.plot(x, len(x)*[self.lower_limit], 'b-', label='lower limit')
+        # x = np.arange(x_start-1,4,0.01)
+        # plt.plot(x, len(x)*[self.upper_limit], 'g-', label='upper limit')
+        # plt.plot(x, len(x)*[self.lower_limit], 'b-', label='lower limit')
         plt.legend()
         plt.show()
+          
 
         # sys.exit()
 
     
 if __name__ == "__main__":
-    # target_x, target_y = 0.5, -0.5
-    # x_target, y_target = -37.5, -25
-    x_target, y_target = 0.4, 70
-    mpc_ = mpc_bspline_ctrl_ros(target_x=x_target, target_y=y_target)
+    mpc_ = mpc_ctrl()
     mpc_.main()
+
