@@ -85,12 +85,12 @@ plt.plot(x, len(x)*[lower_limit], 'black', label='lower limit', linewidth=1.2)
 # plt.plot(x2, yy, color='grey', linewidth=2.2)
 
 # ### Load Trajectory Data ###
-with open('LOG_traj_env_15.pkl', 'rb') as f:
+with open('LOG_traj_env_27.pkl', 'rb') as f:
     LOG_traj = pickle.load(f)
 print(len(LOG_traj))
 
 ### Print Angles ###
-with open('LOG_initial_theta_env15.pkl', 'rb') as f:
+with open('LOG_initial_theta_env27.pkl', 'rb') as f:
     LOG_theta = pickle.load(f)
 
 

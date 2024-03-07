@@ -226,41 +226,41 @@ class mpc_bspline_ctrl:
 
         # ---- input constraints --------
         v_limit = 1.0
-        omega_limit = 1.0
+        omega_limit = 3.0
         constraint_k = omega_limit/v_limit
 
         ctrl_constraint_leftupper = lambda ctrl_point: constraint_k*ctrl_point + omega_limit
         ctrl_constraint_rightlower = lambda ctrl_point: constraint_k*ctrl_point - omega_limit
         ctrl_constraint_leftlower = lambda ctrl_point: -constraint_k*ctrl_point - omega_limit
         ctrl_constraint_rightupper = lambda ctrl_point: -constraint_k*ctrl_point + omega_limit
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_1[0])<=ctrl_point_1[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_1[0])>=ctrl_point_1[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_1[0])<=ctrl_point_1[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_1[0])>=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_1[0])<=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_1[0])>=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_1[0])<=ctrl_point_1[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_1[0])>=ctrl_point_1[1])
 
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_2[0])<=ctrl_point_2[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_2[0])>=ctrl_point_2[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_2[0])<=ctrl_point_2[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_2[0])>=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_2[0])<=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_2[0])>=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_2[0])<=ctrl_point_2[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_2[0])>=ctrl_point_2[1])
 
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_3[0])<=ctrl_point_3[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_3[0])>=ctrl_point_3[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_3[0])<=ctrl_point_3[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_3[0])>=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_3[0])<=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_3[0])>=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_3[0])<=ctrl_point_3[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_3[0])>=ctrl_point_3[1])
 
-        # opti.subject_to(ctrl_constraint_rightlower(ctrl_point_4[0])<=ctrl_point_4[1])
-        # opti.subject_to(ctrl_constraint_leftupper(ctrl_point_4[0])>=ctrl_point_4[1])
-        # opti.subject_to(ctrl_constraint_leftlower(ctrl_point_4[0])<=ctrl_point_4[1])
-        # opti.subject_to(ctrl_constraint_rightupper(ctrl_point_4[0])>=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_rightlower(ctrl_point_4[0])<=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_leftupper(ctrl_point_4[0])>=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_leftlower(ctrl_point_4[0])<=ctrl_point_4[1])
+        opti.subject_to(ctrl_constraint_rightupper(ctrl_point_4[0])>=ctrl_point_4[1])
 
-        opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
-        opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
-        opti.subject_to(opti.bounded(-v_limit, U[4], v_limit))
-        opti.subject_to(opti.bounded(-v_limit, U[6], v_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[1], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[3], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[5], omega_limit))
-        opti.subject_to(opti.bounded(-omega_limit, U[7], omega_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[0], v_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[2], v_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[4], v_limit))
+        # opti.subject_to(opti.bounded(-v_limit, U[6], v_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[1], omega_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[3], omega_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[5], omega_limit))
+        # opti.subject_to(opti.bounded(-omega_limit, U[7], omega_limit))
 
         # ---- boundary conditions --------
         opti.subject_to(pos_x[0]==x_init)
@@ -269,15 +269,15 @@ class mpc_bspline_ctrl:
 
 
         # ---- solve NLP              ------
-        opts = {'ipopt.print_level': 0, 'print_time': 1, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
         
         opti.solver("ipopt", opts) # set numerical backend
         # opti.solver("ipopt") # set numerical backend
         sol = opti.solve()   # actual solve
         opti.debug.value(U)
-        casadi_time = sol.stats()['t_wall_total']
-        print("time", casadi_time)
-        self.optimizer_time.append(casadi_time)
+        # casadi_time = sol.stats()['t_wall_total']
+        # # print("time", casadi_time)
+        # self.optimizer_time.append(casadi_time)
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(U), sol.value(X)
     
@@ -470,8 +470,8 @@ class mpc_bspline_ctrl:
         plt.show()
         print(self.optimizer_time)
 
-        print("x_log", x_log)
-        print("y_log", y_log)
+        # print("x_log", x_log)
+        # print("y_log", y_log)
 
         if self.env_numb == 1:
             plt.plot(x_log, y_log, 'r-', label='desired path')
@@ -524,6 +524,7 @@ class mpc_bspline_ctrl:
             plt.show()
 
     def mutli_init_theta(self):
+        self.plot_figures = False
         THETA = np.arange(-np.pi, np.pi, 0.1)
         LOG_theta = []
         LOG_traj = []
@@ -536,10 +537,10 @@ class mpc_bspline_ctrl:
             LOG_traj.append([Data_tarj_x, Data_tarj_y])
             ii += 1
         
-        with open('LOG_initial_theta_env21.pkl', 'wb') as f:
+        with open('LOG_initial_theta_env27.pkl', 'wb') as f:
             pickle.dump(LOG_theta, f)
 
-        with open('LOG_traj_env_21.pkl', 'wb') as f:
+        with open('LOG_traj_env_27.pkl', 'wb') as f:
             pickle.dump(LOG_traj, f)
 
 
@@ -551,7 +552,7 @@ if __name__ == "__main__":
 
 
     theta = 1.4
-    mpc_bspline.main(start_x, start_y, theta)
+    # mpc_bspline.main(start_x, start_y, theta)
 
-    # mpc_bspline.mutli_init_theta()
+    mpc_bspline.mutli_init_theta()
 
