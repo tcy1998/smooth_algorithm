@@ -226,7 +226,7 @@ class mpc_bspline_ctrl:
 
         # ---- input constraints --------
         v_limit = 1.0
-        omega_limit = 3.0
+        omega_limit = 5.0
         constraint_k = omega_limit/v_limit
 
         ctrl_constraint_leftupper = lambda ctrl_point: constraint_k*ctrl_point + omega_limit
