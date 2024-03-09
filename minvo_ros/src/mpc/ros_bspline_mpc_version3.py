@@ -29,11 +29,15 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from nav_msgs.msg import Path
 import std_msgs.msg
 from visualization_msgs.msg import Marker
-
+import csv
 
 simulation = 0
 reference_path_mpc = Path()
 real_path_bspline = Path()
+
+global_hair_x = []
+global_hair_y = []
+
 
 class mpc_bspline_ctrl_ros:
     def __init__(self, target_x, target_y):
@@ -94,7 +98,7 @@ class mpc_bspline_ctrl_ros:
 
         self.circle_obstacles_1 = {'x': -0.95, 'y': 15, 'r': 1.0}
         self.circle_obstacles_2 = {'x': 5.15, 'y': 33, 'r': 1.0}
-        self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}                                                                                
+        self.circle_obstacles_3 = {'x': -0.85, 'y': 55, 'r': 1.0}                                                                                
 
         self.env_numb = 2           # 1: sin wave obstacles, 2: circle obstacles
         self.plot_figures = False
@@ -200,6 +204,7 @@ class mpc_bspline_ctrl_ros:
         pos_y = X[1,:]
         theta = X[2,:]
         phi = X[3,:]
+
 
         U = opti.variable(8, 1)   # control points (8*1)
         ctrl_point_1 = np.array([U[0], U[1]])
@@ -316,6 +321,9 @@ class mpc_bspline_ctrl_ros:
         
 
         sol = opti.solve()   # actual solve
+
+        global_hair_x.append(sol.value(pos_x[:]))
+        global_hair_y.append(sol.value(pos_y[:]))
 
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(phi[1]), sol.value(U)
@@ -471,6 +479,20 @@ class mpc_bspline_ctrl_ros:
                 self.ctrl_publisher.publish(mpc_cmd)
                 break
 
+        rows_hair = zip(global_hair_x,global_hair_y)
+        with open("real_path_bspline_hair.csv", "w") as f:
+            writer = csv.writer(f)
+            for row in rows_hair:
+                writer.writerow(row)
+
+
+        rows = zip(x_real_log, y_real_log, theta_real_log)
+        with open("real_path_bspline.csv", "w") as f:
+            writer = csv.writer(f)
+            for row in rows:
+                writer.writerow(row)
+        print('both traj saved')
+        
         t = np.arange(0, (len(x_log))*self.dt, self.dt)
         plt.plot(t, theta_log, 'r-', label='theta')
         plt.plot(t, theta_real_log, 'b-', label='desired_theta')
@@ -485,7 +507,12 @@ class mpc_bspline_ctrl_ros:
         # plt.plot(t, phi_log)
         # plt.show()
 
+        print(len(global_hair_x))
         ## Plot for sin obstacles
+        for (x_item, y_item) in zip(global_hair_x, global_hair_y):
+                plt.plot(x_item, y_item, 'g-')
+                # print('plot')
+
         plt.plot(x_log, y_log, 'r-', label='desired path')
         plt.plot(x_real_log, y_real_log, 'b-', label='real path', linestyle='--')
         plt.plot(self.target_x,self.target_y,'bo')
@@ -506,10 +533,10 @@ class mpc_bspline_ctrl_ros:
         plt.gcf().gca().add_artist(target_circle5)
         plt.gcf().gca().add_artist(target_circle6)
         # plt.axis([-5.0, 1.5, -2.4, 2.4])
-        # plt.axis('equal')
-        x = np.arange(x_start-1,4,0.01)
-        plt.plot(x, len(x)*[self.upper_limit], 'g-', label='upper limit')
-        plt.plot(x, len(x)*[self.lower_limit], 'b-', label='lower limit')
+        # # plt.axis('equal')
+        # x = np.arange(x_start-1,4,0.01)
+        # plt.plot(x, len(x)*[self.upper_limit], 'g-', label='upper limit')
+        # plt.plot(x, len(x)*[self.lower_limit], 'b-', label='lower limit')
         plt.legend()
         plt.show()
 

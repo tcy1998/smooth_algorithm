@@ -14,7 +14,7 @@ from gazebo_msgs.srv import GetModelState
 from autoware_msgs.msg import VehicleCmd
 
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
 # import matplotlib.pyplot as plt
@@ -31,6 +31,10 @@ global simulation, path
 simulation = 0 # 0 is off, 1 is on
 reference_path_mpc = Path()
 real_path_mpc = Path()
+
+global_hair_x = []
+global_hair_y = []
+
 
 class mpc_ctrl:
     def __init__(self):
@@ -49,7 +53,7 @@ class mpc_ctrl:
         self.x_next_state = SX.sym("x_next", 4)
 
         self.circle_obstacles_1 = {'x': -0.95, 'y': 15, 'r': 1.0}
-        self.circle_obstacles_2 = {'x': 5.15, 'y': 33, 'r': 1.0}
+        self.circle_obstacles_2 = {'x': 5.85, 'y': 33, 'r': 1.0}
         self.circle_obstacles_3 = {'x': -1.5, 'y': 55, 'r': 1.0}
 
         self.upper_limit = -10
@@ -236,6 +240,8 @@ class mpc_ctrl:
 
         sol = opti.solve()   # actual solve
 
+        global_hair_x.append(sol.value(pos_x[:]))
+        global_hair_y.append(sol.value(pos_y[:]))
 
         return sol.value(pos_x[1]), sol.value(pos_y[1]), sol.value(theta[1]), sol.value(phi[1]), sol.value(U)
     
@@ -308,11 +314,6 @@ class mpc_ctrl:
 
 
 
-            rows = zip(x_real_log, y_real_log, theta_real_log)
-            with open("real_path_mpc.csv", "w") as f:
-                writer = csv.writer(f)
-                for row in rows:
-                    writer.writerow(row)
 
             mpc_cmd.ctrl_cmd.linear_velocity = U[0][0]
             mpc_cmd.ctrl_cmd.steering_angle = np.rad2deg(phi)
@@ -329,6 +330,20 @@ class mpc_ctrl:
                 mpc_cmd.ctrl_cmd.linear_velocity = 0
                 self.ctrl_publisher.publish(mpc_cmd)
                 break
+        rows_hair = zip(global_hair_x,global_hair_y)
+        with open("real_path_mpc_hair.csv", "w") as f:
+            writer = csv.writer(f)
+            for row in rows_hair:
+                writer.writerow(row)
+                    
+
+
+        rows = zip(x_real_log, y_real_log, theta_real_log)
+        with open("real_path_mpc.csv", "w") as f:
+            writer = csv.writer(f)
+            for row in rows:
+                writer.writerow(row)
+        print('both traj saved')
 
         t = np.arange(0, (len(x_log))*self.dt, self.dt)
         plt.plot(t, theta_log, 'r-', label='theta')
@@ -344,7 +359,12 @@ class mpc_ctrl:
         # plt.plot(t, phi_log)
         # plt.show()
 
+        print(len(global_hair_x))
         ## Plot for sin obstacles
+        for (x_item, y_item) in zip(global_hair_x, global_hair_y):
+                plt.plot(x_item, y_item, 'g-')
+                # print('plot')
+        
         plt.plot(x_log, y_log, 'r-')
         plt.plot(x_real_log, y_real_log, 'b-')
         # plt.plot(0,0,'bo')
@@ -363,7 +383,7 @@ class mpc_ctrl:
             # reference_pose.pose.position.x = x_0
             # reference_pose.pose.position.y = y_0
 
-          
+
 
         # sys.exit()
 
