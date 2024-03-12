@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.getcwd()))
 import alphashape
 import pickle
 
-
+plt.figure(figsize=(8, 6), dpi=80)
 def distance_to_goal(position, goal):
     return np.linalg.norm(position - goal)
 
@@ -84,17 +84,17 @@ plt.plot(x, len(x)*[lower_limit], 'black', label='lower limit', linewidth=1.2)
 # plt.plot(x1, yy, color='grey', linewidth=2.2)
 # plt.plot(x2, yy, color='grey', linewidth=2.2)
 
-# ### Load Trajectory Data ###
-with open('LOG_traj_env_27.pkl', 'rb') as f:
-    LOG_traj = pickle.load(f)
-print(len(LOG_traj))
+# # ### Load Trajectory Data ###
+# with open('LOG_traj_env_14.pkl', 'rb') as f:
+#     LOG_traj = pickle.load(f)
+# print(len(LOG_traj))
 
-### Print Angles ###
-with open('LOG_initial_theta_env27.pkl', 'rb') as f:
-    LOG_theta = pickle.load(f)
+# ### Print Angles ###
+# with open('LOG_initial_theta_env14.pkl', 'rb') as f:
+#     LOG_theta = pickle.load(f)
 
 
-### Load Trajectory Data ###
+# ## Load Trajectory Data ###
 # with open('LOG_traj_env_17_mpc_sq.pkl', 'rb') as f:
 #     LOG_traj = pickle.load(f)
 # print(len(LOG_traj))
@@ -114,16 +114,18 @@ with open('LOG_initial_theta_env27.pkl', 'rb') as f:
 # with open('LOG_initial_theta_env22.pkl', 'rb') as f:
 #     LOG_theta = pickle.load(f)
 
-# ### Load Trajectory Data ###
-# with open('LOG_traj_env_23_mpc_sq.pkl', 'rb') as f:
-#     LOG_traj = pickle.load(f)
-# print(len(LOG_traj))
+### Load Trajectory Data ###
+with open('LOG_traj_env_23_mpc_sq.pkl', 'rb') as f:
+    LOG_traj = pickle.load(f)
+print(len(LOG_traj))
 
-# ### Print Angles ###
-# with open('LOG_initial_theta_env23_mpc_sq.pkl', 'rb') as f:
-#     LOG_theta = pickle.load(f)
+### Print Angles ###
+with open('LOG_initial_theta_env23_mpc_sq.pkl', 'rb') as f:
+    LOG_theta = pickle.load(f)
 
 ### Print Trajectory ###
+    
+
 for i in range(len(LOG_traj)):
     if len(LOG_traj[i][0]) > 0:
         traj_end_x = LOG_traj[i][0][-1]
@@ -135,8 +137,11 @@ for i in range(len(LOG_traj)):
             plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'r-', linewidth=0.5)
     # print(len(LOG_traj[i]))
 
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
+ff = 18
+plt.xlabel('x [m]', fontsize=ff)
+plt.ylabel('y [m]', fontsize=ff)
+plt.xticks(fontsize=ff)
+plt.yticks(fontsize=ff)
 # plt.axis("equal")
 plt.show()
 

@@ -83,6 +83,8 @@ print("bsplinempc_10hz_running_time_total: ", bsplinempc_10hz_running_time_total
 print("bsplinempc_10hz_running_time_midan: ", bsplinempc_10hz_running_time_midan)
 
 ### Figure 1 plot x-y and obstacles ###
+ff = 18
+
 fig, ax = plt.subplots()
 
 ax.plot(mpc_10hz_x, mpc_10hz_y, label='baseline_10hz')
@@ -102,8 +104,10 @@ lower_limit = -2.0
 
 plt.plot(target_x,target_y,'bo')
 plt.plot(start_x, start_y, 'go')
-plt.xlabel('pos_x')
-plt.ylabel('pos_y')
+plt.xlabel('x [m]', fontsize=ff)
+plt.ylabel('y [m]', fontsize=ff)
+plt.xticks(fontsize=ff-4)
+plt.yticks(fontsize=ff-4)
 target_circle1 = plt.Circle((circle_obstacles_1['x'], circle_obstacles_1['y']), circle_obstacles_1['r'], color='whitesmoke', fill=True)
 target_circle2 = plt.Circle((circle_obstacles_2['x'], circle_obstacles_2['y']), circle_obstacles_2['r'], color='whitesmoke', fill=True)
 target_circle3 = plt.Circle((circle_obstacles_3['x'], circle_obstacles_3['y']), circle_obstacles_3['r'], color='whitesmoke', fill=True)
@@ -121,7 +125,7 @@ plt.axis([-5.0, 1.5, -2.4, 2.4])
 x = np.arange(start_x-1,4,0.01)
 plt.plot(x, len(x)*[upper_limit], 'black')
 plt.plot(x, len(x)*[lower_limit], 'black')
-plt.legend(loc='lower left')
+plt.legend(loc='lower left', fontsize=ff-3)
 plt.show()
 
 ax.legend()
@@ -149,10 +153,14 @@ def plot_box_statistics(data_lists, labels):
     #             verticalalignment='top', horizontalalignment='center', color='blue')
 
     # Set labels and title
-    ax.set_xlabel('Optimizations')
-    ax.set_ylabel('Time (s)')
-    ax.set_title('Mean, Max, and Std of Running Time')
+    # ax.set_xlabel('Optimizations')
+    # ax.set_ylabel('Time (s)')
+    plt.xlabel('Planners', fontsize=15)
+    plt.ylabel('Time (s)', fontsize=15)
+    # ax.set_title('Mean, Max, and Std of Running Time')
     # plt.axis([0, 5, 0, 0.9])
+    plt.xticks(fontsize=ff-6)
+    plt.yticks(fontsize=ff-6)
     plt.grid()
     plt.show()
 
