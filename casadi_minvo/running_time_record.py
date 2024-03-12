@@ -85,10 +85,10 @@ print("bsplinempc_10hz_running_time_midan: ", bsplinempc_10hz_running_time_midan
 ### Figure 1 plot x-y and obstacles ###
 fig, ax = plt.subplots()
 
-ax.plot(mpc_10hz_x, mpc_10hz_y, label='mpc_10hz')
-ax.plot(mpc_20hz_x, mpc_20hz_y, label='mpc_20hz')
-ax.plot(mpc_50hz_x, mpc_50hz_y, label='mpc_50hz')
-ax.plot(bsplinempc_x, bsplinempc_y, label='bsplinempc_10hz')
+ax.plot(mpc_10hz_x, mpc_10hz_y, label='baseline_10hz')
+ax.plot(mpc_20hz_x, mpc_20hz_y, label='baseline_20hz')
+ax.plot(mpc_50hz_x, mpc_50hz_y, label='baseline_50hz')
+ax.plot(bsplinempc_x, bsplinempc_y, label='BSPOP_10hz')
 
 target_x, target_y = 0.5, -0.5
 start_x, start_y = -4, 0
@@ -168,7 +168,7 @@ print(mpc_10hz_running_time)
 # labels = ['List 1', 'List 2', 'List 3']
 
 data_list =[mpc_10hz_running_time, mpc_20hz_running_time, mpc_50hz_running_time, bsplinempc_10hz_running_time]
-labels = ['mpc_10hz', 'mpc_20hz', 'mpc_50hz', 'bsplinempc_10hz']
+labels = ['baseline_10hz', 'baseline_20hz', 'baseline_50hz', 'BSPOP_10hz']
 
 # data_list =[mpc_10hz_running_time, mpc_20hz_running_time, bsplinempc_10hz_running_time]
 # labels = ['mpc_10hz', 'mpc_20hz', 'bsplinempc_10hz']
