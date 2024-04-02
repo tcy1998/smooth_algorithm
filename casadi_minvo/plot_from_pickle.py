@@ -27,6 +27,10 @@ def distance_to_goal(position, goal):
 # ax.scatter(*zip(*success_point), c='b', s=2)
 # ax.scatter(*zip(*failed_point), c='r', s=1)
 
+plt.rcParams.update({'font.size': 24})
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')    
+
 ### Target and Start Point ###
 target = (0.5, -0.5)
 start = (-4, 0)
@@ -124,7 +128,7 @@ with open('LOG_initial_theta_env23_mpc_sq.pkl', 'rb') as f:
     LOG_theta = pickle.load(f)
 
 ### Print Trajectory ###
-    
+
 
 for i in range(len(LOG_traj)):
     if len(LOG_traj[i][0]) > 0:
@@ -136,30 +140,32 @@ for i in range(len(LOG_traj)):
         else:
             plt.plot(LOG_traj[i][0], LOG_traj[i][1], 'r-', linewidth=0.5)
     # print(len(LOG_traj[i]))
+            
 
-ff = 18
-plt.xlabel('x [m]', fontsize=ff)
-plt.ylabel('y [m]', fontsize=ff)
-plt.xticks(fontsize=ff)
-plt.yticks(fontsize=ff)
+
+# ff = 19
+# plt.xlabel('x [m]', fontsize=ff)
+# plt.ylabel('y [m]', fontsize=ff)
+# plt.xticks(fontsize=ff)
+# plt.yticks(fontsize=ff)
 # plt.axis("equal")
 plt.show()
 
 
 
-for i in range(len(LOG_theta)):
-    if LOG_theta[i][0] == 1:
-        t_list = np.arange(0, len(LOG_traj[i][0]), 1)*0.05
-        plt.plot(t_list, LOG_theta[i][1], 'b-')
-    else:
-        t_list = np.arange(0, len(LOG_traj[i][0]), 1)*0.05
-        plt.plot(t_list, LOG_theta[i][1], 'r-')
+# for i in range(len(LOG_theta)):
+#     if LOG_theta[i][0] == 1:
+#         t_list = np.arange(0, len(LOG_traj[i][0]), 1)*0.05
+#         plt.plot(t_list, LOG_theta[i][1], 'b-')
+#     else:
+#         t_list = np.arange(0, len(LOG_traj[i][0]), 1)*0.05
+#         plt.plot(t_list, LOG_theta[i][1], 'r-')
 
-plt.axis([0, 10, -4, 4])
-plt.xlabel('time [s]')
-plt.ylabel('theta [rad]')
-plt.grid()
-plt.show()
+# plt.axis([0, 10, -4, 4])
+# plt.xlabel('time [s]')
+# plt.ylabel('theta [rad]')
+# plt.grid()
+# plt.show()
 
 # ### Print Obstacles ###
 # x = np.arange(-3.5,0.5,0.01)
