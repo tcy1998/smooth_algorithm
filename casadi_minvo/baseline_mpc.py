@@ -416,7 +416,7 @@ if __name__ == "__main__":
     # theta = 1.4
     mpc = mpc_ctrl(target_x=target_x, target_y=target_y)
     
-    # theta = -0.0 * np.pi
-    # mpc.main(start_x, start_y, theta)
+    theta = -0.0 * np.pi
+    mpc.main(start_x, start_y, theta)
 
-    mpc.mutli_init_theta()
+    # mpc.mutli_init_theta()
